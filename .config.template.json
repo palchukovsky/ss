@@ -1,0 +1,39 @@
+{
+  "ss": {
+    "endpoint": "",
+    "builder": {
+      "aws": {
+        "accessKey": {
+          "id": "",
+          "secret": ""
+        }
+      }
+    },
+    "service": {
+      "aws": {
+        "accountId": "",
+        "region": "",
+        "accessKey": {
+          "id": "",
+          "secret": ""
+        },
+        "gateway": {
+          "app": {
+            "id": ""
+          },
+          "auth": {
+            "id": ""
+          }
+        }
+      },
+      "firebase": {},
+      "privateKey": {
+        "rsa": ""
+      }
+    },
+    "log": {
+      "papertrail": "",
+      "sentry": ""
+    }
+  }
+}

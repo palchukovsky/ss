@@ -1,0 +1,28 @@
+// Copyright 2021, the SS project owners. All rights reserved.
+// Please see the OWNERS and LICENSE files for details.
+
+package apiauth
+
+import (
+	"github.com/palchukovsky/ss"
+	"github.com/palchukovsky/ss/lambda"
+	rest "github.com/palchukovsky/ss/lambda/gateway/rest"
+)
+
+// Init initiates the auth-lambda.
+func Init(
+	newLambda func() rest.Lambda,
+	serviceInit func(projectPackage string),
+) {
+	serviceInit("auth")
+	defer ss.S.Log().CheckExit()
+	service = rest.NewService(newLambda())
+}
+
+// Run runs the API auth-lambda.
+func Run() {
+	defer ss.S.Log().CheckExit()
+	service.Start()
+}
+
+var service lambda.Service

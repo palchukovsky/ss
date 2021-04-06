@@ -22,7 +22,7 @@ func ForEachTable(
 	log.Debug("Prcessing each table...")
 
 	tables := append(
-		installer.NewTables(db),
+		installer.NewTables(db, log),
 		newConnectionTable(db, log),
 		newUserTable(db, log))
 
@@ -42,7 +42,7 @@ func ForEachTable(
 
 // Installer describes the database installing interface.
 type Installer interface {
-	NewTables(ddbinstall.DB) []ddbinstall.Table
+	NewTables(ddbinstall.DB, ss.ServiceLog) []ddbinstall.Table
 }
 
 ////////////////////////////////////////////////////////////////////////////////

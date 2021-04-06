@@ -6,18 +6,21 @@ package connectiondeletelambda
 import (
 	"fmt"
 
+	"github.com/palchukovsky/ss"
 	apiapp "github.com/palchukovsky/ss/api/app"
 	"github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
 	ws "github.com/palchukovsky/ss/lambda/gateway/ws"
 )
 
-func Init(serviceInit func(projectPackage string)) {
+func Init(initService func(projectPackage string, params ss.ServiceParams)) {
 	apiapp.Init(
 		func() ws.Lambda {
 			return lambda{db: ddb.GetClientInstance()}
 		},
-		serviceInit)
+		func(projectPackage string) {
+			initService(projectPackage, ss.ServiceParams{IsAWS: true})
+		})
 }
 
 func Run() { apiapp.Run() }

@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 )
@@ -29,24 +31,31 @@ type Service interface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// ServiceParams is a set of service parameters.
+type ServiceParams struct {
+	IsAWS      bool
+	IsFirebase bool
+	IsAuth     bool
+}
+
 // NewService creates new service instance.
 func NewService(
 	product string,
 	projectPackage string,
-	name string,
-	isAWS bool,
-	isFirebase bool,
-	isAuth bool,
+	params ServiceParams,
 	configWrapper ConfigWrapper,
 ) Service {
+
+	name := os.Args[0]
+	name = name[strings.LastIndexAny(name, `/\\`)+1:]
 
 	rand.Seed(Now().UnixNano())
 
 	config := configWrapper.GetSSPtr()
 	{
-		config.SS.Service.AWS.AccessKey.IsUsed = isAWS
-		config.SS.Service.PrivateKey.RSA.IsUsed = isAuth
-		config.SS.Service.Firebase.IsUsed = isFirebase
+		config.SS.Service.AWS.AccessKey.IsUsed = params.IsAWS
+		config.SS.Service.PrivateKey.RSA.IsUsed = params.IsAuth
+		config.SS.Service.Firebase.IsUsed = params.IsFirebase
 
 		file, err := ioutil.ReadFile("config.json")
 		if err != nil {

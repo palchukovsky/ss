@@ -13,7 +13,9 @@ import (
 	ddbinstall "github.com/palchukovsky/ss/ddb/install"
 )
 
-func Init(serviceInit func(projectPackage string)) { serviceInit("install") }
+func Init(initService func(projectPackage string, params ss.ServiceParams)) {
+	initService("install", ss.ServiceParams{})
+}
 
 func Run(installer dbinstall.Installer) {
 	log := ss.S.Log()

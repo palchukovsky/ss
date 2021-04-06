@@ -12,9 +12,9 @@ import (
 // Init initiates the app-lambda.
 func Init(
 	newLambda func() ws.Lambda,
-	serviceInit func(projectPackage string),
+	initService func(projectPackage string),
 ) {
-	serviceInit("app")
+	initService("app")
 	defer ss.S.Log().CheckExit()
 	service = ws.NewService(newLambda())
 }

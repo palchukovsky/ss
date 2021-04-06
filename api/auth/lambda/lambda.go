@@ -21,7 +21,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-func Init(serviceInit func(projectPackage string)) {
+func Init(initService func(projectPackage string, params ss.ServiceParams)) {
 	apiauth.Init(
 		func() rest.Lambda {
 			result := lambda{db: ddb.GetClientInstance()}
@@ -37,7 +37,14 @@ func Init(serviceInit func(projectPackage string)) {
 			}
 			return result
 		},
-		serviceInit)
+		func(projectPackage string) {
+			initService(
+				projectPackage,
+				ss.ServiceParams{
+					IsAuth:     true,
+					IsFirebase: true,
+				})
+		})
 }
 
 func Run() { apiauth.Run() }

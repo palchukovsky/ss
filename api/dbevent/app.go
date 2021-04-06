@@ -12,9 +12,9 @@ import (
 // Init initiates the dbevent-lambda.
 func Init(
 	newLambda func() dbeventlambda.Lambda,
-	serviceInit func(projectPackage string),
+	initService func(projectPackage string),
 ) {
-	serviceInit("dbevent")
+	initService("dbevent")
 	defer ss.S.Log().CheckExit()
 	service = dbeventlambda.NewService(newLambda())
 }

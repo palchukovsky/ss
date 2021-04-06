@@ -12,9 +12,9 @@ import (
 // Init initiates the auth-lambda.
 func Init(
 	newLambda func() rest.Lambda,
-	serviceInit func(projectPackage string),
+	initService func(projectPackage string),
 ) {
-	serviceInit("auth")
+	initService("auth")
 	defer ss.S.Log().CheckExit()
 	service = rest.NewService(newLambda())
 }

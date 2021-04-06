@@ -15,9 +15,9 @@ import (
 	apiauth "github.com/palchukovsky/ss/api/auth"
 )
 
-func Run(serviceInit func(projectPackage string)) {
+func Run(initService func(projectPackage string, params ss.ServiceParams)) {
 
-	serviceInit("app")
+	initService("app", ss.ServiceParams{IsAuth: true})
 	defer ss.S.Log().CheckExit()
 
 	config := ss.S.Config()

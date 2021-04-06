@@ -1,6 +1,5 @@
 {
   "ss": {
-    "endpoint": "",
     "builder": {
       "aws": {
         "accessKey": {
@@ -10,6 +9,7 @@
       }
     },
     "service": {
+      "endpoint": "",
       "aws": {
         "accountId": "",
         "region": "",

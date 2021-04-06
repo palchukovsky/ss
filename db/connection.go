@@ -38,7 +38,7 @@ func FindUserConnections(
 		Index(&result.buffer).
 		Query("user = :u", ddb.Values{":u": user}).
 		RequestPaged()
-	return result, err
+	return &result, err
 }
 
 type findUserConnectionsIterator struct {

@@ -4,6 +4,7 @@
 package dbinstall
 
 import (
+	"github.com/palchukovsky/ss"
 	"github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
 	ddbinstall "github.com/palchukovsky/ss/ddb/install"
@@ -11,9 +12,9 @@ import (
 
 type connection struct{ ddbinstall.TableAbstraction }
 
-func newConnectionTable(ddb ddbinstall.DB) ddbinstall.Table {
+func newConnectionTable(ddb ddbinstall.DB, log ss.ServiceLog) ddbinstall.Table {
 	return connection{
-		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.Connection{}),
+		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.Connection{}, log),
 	}
 }
 

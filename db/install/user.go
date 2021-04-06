@@ -4,6 +4,7 @@
 package dbinstall
 
 import (
+	"github.com/palchukovsky/ss"
 	lambda "github.com/palchukovsky/ss/api/auth/lambda"
 	"github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
@@ -12,9 +13,9 @@ import (
 
 type user struct{ ddbinstall.TableAbstraction }
 
-func newUserTable(ddb ddbinstall.DB) ddbinstall.Table {
+func newUserTable(ddb ddbinstall.DB, log ss.ServiceLog) ddbinstall.Table {
 	return user{
-		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.User{}),
+		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.User{}, log),
 	}
 }
 

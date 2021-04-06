@@ -12,7 +12,7 @@ import (
 func Init(serviceInit func(projectPackage string)) { serviceInit("install") }
 
 func Run(installer dbinstall.Installer) {
-	log := ss.S.Log().NewSession("database.create")
+	log := ss.S.Log()
 	defer log.CheckExit()
 	log.Started()
 

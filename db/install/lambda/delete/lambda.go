@@ -16,7 +16,7 @@ import (
 func Init(serviceInit func(projectPackage string)) { serviceInit("install") }
 
 func Run(installer dbinstall.Installer) {
-	log := ss.S.Log().NewSession("database.delete")
+	log := ss.S.Log()
 	defer log.CheckExit()
 	log.Started()
 
@@ -34,7 +34,7 @@ func Run(installer dbinstall.Installer) {
 				if awsErr.Code() != dynamodb.ErrCodeResourceNotFoundException {
 					return err
 				}
-				log.Info("Table %q doesn't exist: %q.", table.GetName(), err)
+				table.Log().Info("Table doesn't exist: %q.", err)
 			}
 			return nil
 		},

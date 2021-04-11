@@ -9,6 +9,7 @@
     "papertrail",
     "ss",
     "ssdb",
+    "sslambda",
     "wsgatewaylambda"
   ]
 }

@@ -24,4 +24,5 @@ func (table user) Create() error {
 		[]ddb.IndexRecord{&lambda.FirebaseIndex{}})
 }
 
-func (user) Setup() error { return nil }
+func (user) Setup() error      { return nil }
+func (user) InsertData() error { return nil }

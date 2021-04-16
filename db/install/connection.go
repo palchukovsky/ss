@@ -34,3 +34,5 @@ func (table connection) Setup() error {
 	}
 	return table.EnableTimeToLive("expired")
 }
+
+func (connection) InsertData() error { return nil }

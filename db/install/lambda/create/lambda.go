@@ -48,4 +48,14 @@ func Run(installer dbinstall.Installer) {
 	if err != nil {
 		log.Panic(`Failed to wait table: "%v".`, err)
 	}
+
+	log.Info("Inserting data...")
+	err = dbinstall.ForEachTable(
+		installer,
+		db,
+		func(table ddbinstall.Table) error { return table.InsertData() },
+		log)
+	if err != nil {
+		log.Panic(`Failed to insert data into table: "%v".`, err)
+	}
 }

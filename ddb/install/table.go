@@ -18,13 +18,15 @@ type Table interface {
 	GetName() string
 	Log() ss.ServiceLog
 
-	Setup() error
-
 	Create() error
 	Delete() error
 
+	Setup() error
+
 	Wait() error
 	WaitUntilNotExists() error
+
+	InsertData() error
 }
 
 ////////////////////////////////////////////////////////////////////////////////

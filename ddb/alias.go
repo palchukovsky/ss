@@ -65,7 +65,7 @@ func aliasReservedWord(source string, aliases *map[string]*string,
 func isReservedWord(source string) bool {
 	switch source {
 	case "user", "snapshot", "next", "name", "token",
-		"type", "desc", "start", "partition":
+		"type", "desc", "start", "partition", "data":
 		return true
 	default:
 		return false

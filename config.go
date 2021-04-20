@@ -37,6 +37,9 @@ type ServiceConfig struct {
 				ID       string `json:"id"`
 				Endpoint string `json:"endpoint"`
 			} `json:"app"`
+			Auth struct {
+				ID string `json:"id"`
+			} `json:"auth"`
 		} `json:"gateway"`
 	} `json:"aws"`
 	Firebase   FirebaseConfig `json:"firebase"`

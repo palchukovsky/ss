@@ -14,7 +14,7 @@ import (
 
 	petname "github.com/dustinkirkland/golang-petname"
 	ss "github.com/palchukovsky/ss"
-	apiauth "github.com/palchukovsky/ss/api/auth"
+	apiauth "github.com/palchukovsky/ss/api/gateway/auth"
 	ssdb "github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
 	rest "github.com/palchukovsky/ss/lambda/gateway/rest"

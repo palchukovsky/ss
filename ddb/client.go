@@ -32,7 +32,7 @@ type Client interface {
 // GetClientInstance returns reference to client singleton.
 func GetClientInstance() Client {
 	if clientInstance == nil {
-		clientInstance = client{db: dynamodb.New(ss.S.GetAWSSessionV1())}
+		clientInstance = client{db: dynamodb.New(ss.S.NewAWSSessionV1())}
 	}
 	return clientInstance
 }

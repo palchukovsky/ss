@@ -22,7 +22,7 @@ type DB interface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func NewDB() DB { return dbClient{db: dynamodb.New(ss.S.GetAWSSessionV1())} }
+func NewDB() DB { return dbClient{db: dynamodb.New(ss.S.NewAWSSessionV1())} }
 
 type dbClient struct{ db *dynamodb.DynamoDB }
 

@@ -4,6 +4,7 @@
 package ss
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
@@ -26,7 +29,9 @@ type Service interface {
 	Build() Build
 
 	NewBuildEntityName(name string) string
-	GetAWSSessionV1() *session.Session
+
+	NewAWSConfig() aws.Config
+	NewAWSSessionV1() *session.Session
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,12 +105,20 @@ func (service service) NewBuildEntityName(name string) string {
 		name)
 }
 
-func (service service) GetAWSSessionV1() *session.Session {
+func (service service) NewAWSConfig() aws.Config {
+	result, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		service.Log().Panic(`Failed to load AWS config: "%v".`, err)
+	}
+	return result
+}
+
+func (service service) NewAWSSessionV1() *session.Session {
 	result, err := session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	})
 	if err != nil {
-		service.Log().Panic(`Failed to load AWS config: "%v".`, err)
+		service.Log().Panic(`Failed to load AWS v1 config: "%v".`, err)
 	}
 	return result
 }

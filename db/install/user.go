@@ -5,7 +5,7 @@ package dbinstall
 
 import (
 	"github.com/palchukovsky/ss"
-	lambda "github.com/palchukovsky/ss/api/auth/lambda"
+	lambda "github.com/palchukovsky/ss/api/gateway/auth/lambda"
 	"github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
 	ddbinstall "github.com/palchukovsky/ss/ddb/install"

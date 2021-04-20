@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/palchukovsky/ss"
-	apiauth "github.com/palchukovsky/ss/api/auth"
+	apiauth "github.com/palchukovsky/ss/api/gateway/auth"
 )
 
 func Run(initService func(projectPackage string, params ss.ServiceParams)) {

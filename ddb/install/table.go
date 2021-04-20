@@ -246,7 +246,7 @@ func (table TableAbstraction) EnableStreams(
 			StartingPosition: aws.String(lambda.EventSourcePositionLatest),
 		}
 		request, _ := lambda.
-			New(ss.S.GetAWSSessionV1()).
+			New(ss.S.NewAWSSessionV1()).
 			CreateEventSourceMappingRequest(&input)
 		if err := request.Send(); err != nil {
 			return fmt.Errorf(

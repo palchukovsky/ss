@@ -34,8 +34,7 @@ type ServiceConfig struct {
 		AccessKey AWSAccessKey `json:"accessKey"`
 		Gateway   struct {
 			App struct {
-				ID       string `json:"id"`
-				Endpoint string `json:"endpoint"`
+				ID string `json:"id"`
 			} `json:"app"`
 			Auth struct {
 				ID string `json:"id"`

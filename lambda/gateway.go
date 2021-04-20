@@ -25,11 +25,16 @@ type Gateway interface {
 // NewGateway creates new gateway instance.
 func NewGateway() Gateway {
 	config := ss.S.Config()
-	session, err := session.NewSession(&aws.Config{
-		Region: aws.String(config.AWS.Region),
-		Credentials: credentials.NewStaticCredentials(
-			config.AWS.AccessKey.ID, config.AWS.AccessKey.Secret, ""),
-		Endpoint: aws.String(config.AWS.Gateway.App.Endpoint)})
+	session, err := session.NewSession(
+		&aws.Config{
+			Region: aws.String(config.AWS.Region),
+			Credentials: credentials.NewStaticCredentials(
+				config.AWS.AccessKey.ID,
+				config.AWS.AccessKey.Secret,
+				"",
+			),
+		},
+	)
 	if err != nil {
 		ss.S.Log().Panic(`Failed to create lambda session: "%v".`, err)
 	}

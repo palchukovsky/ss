@@ -27,24 +27,28 @@ type ConfigWrapper interface {
 ////////////////////////////////////////////////////////////////////////////////
 
 type ServiceConfig struct {
-	Endpoint string `json:"endpoint"`
-	AWS      struct {
-		AccountID string       `json:"accountId"`
-		Region    string       `json:"region"`
-		AccessKey AWSAccessKey `json:"accessKey"`
-		Gateway   struct {
-			App struct {
-				ID string `json:"id"`
-			} `json:"app"`
-			Auth struct {
-				ID string `json:"id"`
-			} `json:"auth"`
-		} `json:"gateway"`
-	} `json:"aws"`
+	Endpoint   string         `json:"endpoint"`
+	AWS        AWSConfig      `json:"aws"`
 	Firebase   FirebaseConfig `json:"firebase"`
 	PrivateKey struct {
 		RSA RSAPrivateKey `json:"rsa"`
 	} `json:"privateKey"`
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type AWSConfig struct {
+	AccountID string       `json:"accountId"`
+	Region    string       `json:"region"`
+	AccessKey AWSAccessKey `json:"accessKey"`
+	Gateway   struct {
+		App struct {
+			ID string `json:"id"`
+		} `json:"app"`
+		Auth struct {
+			ID string `json:"id"`
+		} `json:"auth"`
+	} `json:"gateway"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,6 +81,16 @@ type awsAccessKey struct {
 type AWSAccessKey struct {
 	IsUsed bool
 	awsAccessKey
+}
+
+func NewAWSAccessKey(id, secret string) AWSAccessKey {
+	return AWSAccessKey{
+		IsUsed: true,
+		awsAccessKey: awsAccessKey{
+			ID:     id,
+			Secret: secret,
+		},
+	}
 }
 
 func (key *AWSAccessKey) UnmarshalJSON(source []byte) error {

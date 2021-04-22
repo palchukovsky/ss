@@ -18,10 +18,13 @@ func ForEachGateway(
 ) error {
 	log.Debug("Processing each gateway...")
 
-	gateways := append(
-		installer.NewGateways(log),
-		newAuthGateway(log),
-		newAppGateway(log))
+	gateways := installer.NewGateways(log)
+	if id := ss.S.Config().AWS.Gateway.Auth.ID; id != "" {
+		gateways = append(gateways, newAuthGateway(id, log))
+	}
+	if id := ss.S.Config().AWS.Gateway.App.ID; id != "" {
+		gateways = append(gateways, newAppGateway(id, log))
+	}
 	defer func() {
 		for _, gateway := range gateways {
 			gateway.Log().CheckExit()

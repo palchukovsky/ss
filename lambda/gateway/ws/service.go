@@ -39,7 +39,12 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 	if err != nil {
 		return awsResponse{}, err
 	}
-	defer lambdaRequest.Log().CheckExit()
+	defer func() {
+		lambdaRequest.Log().CheckExit(
+			recover(),
+			func() string { return "handling REST request" })
+	}()
+
 	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug(
 			"Lambda request dump: %s.",

@@ -20,13 +20,17 @@ func (serviceLog *serviceLog) NewSession(prefix string) ServiceLog {
 	return newLogSession(serviceLog, prefix)
 }
 
-func (serviceLog *serviceLog) CheckExit() {
-	if serviceLog.isPanic {
+func (serviceLog *serviceLog) CheckExit(
+	panicErr interface{},
+	getPanicDetails func() string,
+) {
+	if panicErr == nil || serviceLog.isPanic {
 		return
 	}
-	if err := recover(); err != nil {
-		serviceLog.Panic(`Panic detected: "%v".`, err)
-	}
+	serviceLog.Panic(
+		`Panic detected: "%v". Details: %s`,
+		panicErr,
+		getPanicDetails())
 }
 
 func (serviceLog serviceLog) Started() {

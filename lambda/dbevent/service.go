@@ -30,7 +30,11 @@ func (service *service) handle(event *events.DynamoDBEvent) error {
 	eventID := event.Records[0].EventID
 	log := ss.S.Log().NewSession(
 		eventID[:4] + "-" + eventID[len(eventID)-4:])
-	defer log.CheckExit()
+	defer func() {
+		log.CheckExit(
+			recover(),
+			func() string { return "handling DynamoDB event" })
+	}()
 
 	log.Debug("%d records.", len(event.Records))
 	if ss.S.Config().IsExtraLogEnabled() {

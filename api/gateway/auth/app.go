@@ -15,13 +15,21 @@ func Init(
 	initService func(projectPackage string),
 ) {
 	initService("auth")
-	defer ss.S.Log().CheckExit()
+	defer func() {
+		ss.S.Log().CheckExit(
+			recover(),
+			func() string { return "service initialization" })
+	}()
 	service = rest.NewService(newLambda())
 }
 
 // Run runs the API auth-lambda.
 func Run() {
-	defer ss.S.Log().CheckExit()
+	defer func() {
+		ss.S.Log().CheckExit(
+			recover(),
+			func() string { return "running" })
+	}()
 	service.Start()
 }
 

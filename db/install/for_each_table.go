@@ -24,9 +24,9 @@ func ForEachTable(
 		newConnectionTable(db, log),
 		newUserTable(db, log))
 	defer func() {
-		for _, table := range tables {
-			table.Log().CheckExit()
-		}
+		log.CheckExit(
+			recover(),
+			func() string { return "each table callbacking" })
 	}()
 
 	for _, table := range tables {

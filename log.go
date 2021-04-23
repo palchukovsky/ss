@@ -13,7 +13,7 @@ type ServiceLog interface {
 	// prefix for each session message.
 	NewSession(prefix string) ServiceLog
 
-	CheckExit()
+	CheckExit(panicErr interface{}, getPanicDetails func() string)
 
 	Started()
 
@@ -44,7 +44,12 @@ func (log *serviceLogSession) NewSession(prefix string) ServiceLog {
 	return newLogSession(log, prefix)
 }
 
-func (log *serviceLogSession) CheckExit() { log.log.CheckExit() }
+func (log *serviceLogSession) CheckExit(
+	panicErr interface{},
+	getPanicDetails func() string,
+) {
+	log.log.CheckExit(panicErr, getPanicDetails)
+}
 
 func (log serviceLogSession) Started() { log.log.Started() }
 

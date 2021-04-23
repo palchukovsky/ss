@@ -85,16 +85,20 @@ func (log *serviceLog) NewSession(prefix string) ServiceLog {
 	return newLogSession(log, prefix)
 }
 
-func (serviceLog *serviceLog) CheckExit() {
+func (serviceLog *serviceLog) CheckExit(
+	panicErr interface{},
+	getPanicDetails func() string,
+) {
 	defer serviceLog.flushSentry()
 	serviceLog.syncLog()
-	if serviceLog.isPanic {
+	if panicErr == nil || serviceLog.isPanic {
 		return
 	}
-	if err := recover(); err != nil {
-		sentry.CurrentHub().Recover(err)
-		serviceLog.Panic(`Panic detected: "%v".`, err)
-	}
+	sentry.CurrentHub().Recover(panicErr)
+	serviceLog.Panic(
+		`Panic detected: "%v". Details: %v.`,
+		panicErr,
+		getPanicDetails())
 }
 
 func (serviceLog serviceLog) Started() {

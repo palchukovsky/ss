@@ -27,7 +27,11 @@ func NewGateway(
 ) Gateway {
 
 	log = log.NewSession(name)
-	defer log.CheckExit()
+	defer func() {
+		log.CheckExit(
+			recover(),
+			func() string { return fmt.Sprintf("gateway %v instance creating", id) })
+	}()
 
 	commands, err := reader.Read(name, log)
 	if err != nil {

@@ -23,9 +23,10 @@ func ForEachGateway(
 		newAuthGateway(log),
 		newAppGateway(log))
 	defer func() {
-		for _, gateway := range gateways {
-			gateway.Log().CheckExit()
-		}
+		log.CheckExit(
+			recover(),
+			func() string { return "each gataway callbacking" })
+
 	}()
 
 	for _, gateway := range gateways {

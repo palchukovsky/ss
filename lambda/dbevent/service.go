@@ -26,16 +26,24 @@ func (service *service) handle(event *events.DynamoDBEvent) error {
 		ss.S.Log().Warn("Empty event list.")
 		return nil
 	}
+
 	eventID := event.Records[0].EventID
 	log := ss.S.Log().NewSession(
 		eventID[:4] + "-" + eventID[len(eventID)-4:])
 	defer log.CheckExit()
+
 	log.Debug("%d records.", len(event.Records))
+	if ss.S.Config().IsExtraLogEnabled() {
+		log.Debug("Records dump: %s", ss.Dump(event.Records))
+	}
+
 	request := newRequest(event.Records, log)
+
 	if err := service.Lambda.Execute(request); err != nil {
 		request.Log().Error(`Lambda execution error: "%v". Events dump: %s`,
 			err, ss.Dump(event.Records))
 		return err
 	}
+
 	return nil
 }

@@ -76,11 +76,15 @@ func handle(ctx context.Context, request request) (response, error) {
 	user, expirationTime, userErr, err := apiauth.ParseAccessToken(accessToken)
 	if err != nil {
 		if ss.S.Build().IsProd() {
-			getLog(request).Error(`Failed to parse access token: "%v". Dump: %s`,
-				err, ss.Dump(request))
+			getLog(request).Error(
+				`Failed to parse access token: "%v". Dump: %s`,
+				err,
+				ss.Dump(request))
 		} else {
-			getLog(request).Debug(`Failed to parse access token: "%v". Dump: %s`,
-				err, ss.Dump(request))
+			getLog(request).Debug(
+				`Failed to parse access token: "%v". Dump: %s`,
+				err,
+				ss.Dump(request))
 		}
 		return response{}, errors.New("failed to parse access token")
 	}

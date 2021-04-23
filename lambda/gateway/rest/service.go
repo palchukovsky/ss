@@ -41,10 +41,11 @@ func (service service) handle(request awsRequest) (awsResponse, error) {
 
 	lambdaRequest := newRequest(request, service.Gateway, service.context)
 	defer lambdaRequest.Log().CheckExit()
-	// if buzz.IsDev() {
-	// 	lambdaRequest.Log().Debug("Lambda request dump: %s",
-	// 		ss.Dump(lambdaRequest.AWSRequest))
-	// }
+	if ss.S.Config().IsExtraLogEnabled() {
+		lambdaRequest.Log().Debug(
+			"Lambda request dump: %s",
+			ss.Dump(lambdaRequest.AWSRequest))
+	}
 	if err := service.validateRequest(request); err != nil {
 		lambdaRequest.Log().Warn(
 			`Request validation failed: "%v". Request dump: %s`, err,
@@ -53,18 +54,23 @@ func (service service) handle(request awsRequest) (awsResponse, error) {
 	}
 
 	if err := service.lambda.Execute(&lambdaRequest); err != nil {
-		lambdaRequest.Log().Error(`Lambda execution error: "%v". Request dump: %s`,
-			err, ss.Dump(lambdaRequest.AWSRequest))
+		lambdaRequest.Log().Error(
+			`Lambda execution error: "%v". Request dump: %s`,
+			err,
+			ss.Dump(lambdaRequest.AWSRequest))
 		return awsResponse{StatusCode: http.StatusInternalServerError}, err
 	}
 
 	response := awsResponse{
 		StatusCode: lambdaRequest.StatusCode,
-		Body:       lambdaRequest.NewResponse()}
-	// if !buzz.IsProd() {
-	// 	lambdaRequest.Log().Debug("Response status code: %d. Dump: %s",
-	// 		response.StatusCode, response.Body)
-	// }
+		Body:       lambdaRequest.NewResponse(),
+	}
+	if ss.S.Config().IsExtraLogEnabled() {
+		lambdaRequest.Log().Debug(
+			"Response status code: %d. Dump: %s",
+			response.StatusCode,
+			response.Body)
+	}
 	return response, nil
 }
 

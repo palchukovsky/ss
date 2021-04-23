@@ -40,8 +40,9 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 		return awsResponse{}, err
 	}
 	defer lambdaRequest.Log().CheckExit()
-	if !ss.S.Build().IsProd() {
-		lambdaRequest.Log().Debug("Lambda request dump: %s.",
+	if ss.S.Config().IsExtraLogEnabled() {
+		lambdaRequest.Log().Debug(
+			"Lambda request dump: %s.",
 			ss.Dump(lambdaRequest.AWSRequest))
 	}
 
@@ -54,7 +55,7 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 		responseBody = newSuccessResponseBody(lambdaRequest)
 	}
 
-	if !ss.S.Build().IsProd() {
+	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug("Response dump: %s.", responseBody)
 	}
 	return awsResponse{StatusCode: http.StatusOK, Body: responseBody}, nil

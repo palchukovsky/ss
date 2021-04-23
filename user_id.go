@@ -3,6 +3,9 @@
 
 package ss
 
+// UserIDSize is the size of UserID in bytes.
+const UserIDSize = EntityIDSize
+
 // ss.UserID is a user ID.
 type UserID struct{ EntityID }
 

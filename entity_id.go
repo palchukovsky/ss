@@ -13,6 +13,9 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// EntityIDSize is the size of EntityID in bytes.
+const EntityIDSize = 16
+
 // EntityID is an abstract project entity ID.
 type EntityID uuid.UUID
 

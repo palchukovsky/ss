@@ -47,6 +47,8 @@ type ServiceConfig struct {
 	} `json:"privateKey"`
 }
 
+func (ServiceConfig) IsExtraLogEnabled() bool { return !S.Build().IsProd() }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 type Build struct {

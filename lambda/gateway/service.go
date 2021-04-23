@@ -8,7 +8,7 @@ import (
 	"github.com/palchukovsky/ss/lambda"
 )
 
-// Service implements methods of lambded service which has an output gateway.
+// Service implements methods of lambda service which has an output gateway.
 type Service struct{ Gateway lambda.Gateway }
 
 // NewService creates new Service instance.

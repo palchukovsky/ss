@@ -17,7 +17,7 @@ import (
 
 // Request describes request to lambda.
 type Request interface {
-	Log() ss.ServiceLog
+	Log() ss.ServiceLogStream
 
 	GetConnectionID() lambda.ConnectionID
 	GetUserID() ss.UserID

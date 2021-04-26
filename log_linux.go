@@ -81,23 +81,53 @@ type logMessage struct {
 	Type    string
 }
 
-func (log *serviceLog) NewSession(prefix string) ServiceLog {
+func (log *serviceLog) NewSession(prefix string) ServiceLogStream {
 	return newLogSession(log, prefix)
 }
 
-func (serviceLog *serviceLog) CheckExit(
-	panicErr interface{},
+func (serviceLog *serviceLog) CheckExit(panicValue interface{}) {
+	serviceLog.CheckExitWithPanicDetails(panicValue, nil)
+}
+
+func (serviceLog *serviceLog) CheckExitWithPanicDetails(
+	panicValue interface{},
 	getPanicDetails func() string,
 ) {
 	defer serviceLog.flushSentry()
 	serviceLog.syncLog()
-	if panicErr == nil || serviceLog.isPanic {
+
+	serviceLog.checkPanicWithDetails(panicValue, getPanicDetails)
+}
+
+func (serviceLog *serviceLog) checkPanic(panicValue interface{}) {
+	serviceLog.checkPanicWithDetails(panicValue, nil)
+}
+
+func (serviceLog *serviceLog) checkPanicWithDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	if panicValue == nil {
 		return
 	}
-	sentry.CurrentHub().Recover(panicErr)
+
+	if serviceLog.isPanic {
+		panic(panicValue)
+		return
+	}
+
+	defer serviceLog.flushSentry()
+	serviceLog.syncLog()
+
+	sentry.CurrentHub().Recover(panicValue)
+
+	if panicValue == nil {
+		serviceLog.Panic(`Panic detected: "%v".`, panicValue)
+		return
+	}
 	serviceLog.Panic(
 		`Panic detected: "%v". Details: %v.`,
-		panicErr,
+		panicValue,
 		getPanicDetails())
 }
 

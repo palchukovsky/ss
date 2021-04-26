@@ -8,14 +8,18 @@ import (
 )
 
 // ServiceLog describes product log interface.
-type ServiceLog interface {
+type ServiceLogStream interface {
 	// NewLogSession creates the log session which allows setting records
 	// prefix for each session message.
-	NewSession(prefix string) ServiceLog
+	NewSession(prefix string) ServiceLogStream
 
-	CheckExit(panicErr interface{}, getPanicDetails func() string)
+	CheckExit(panicValue interface{})
+	CheckExitWithPanicDetails(
+		panicValue interface{},
+		getPanicDetails func() string)
 
-	Started()
+	checkPanic(panicValue interface{})
+	checkPanicWithDetails(panicValue interface{}, getPanicDetails func() string)
 
 	Debug(format string, args ...interface{})
 
@@ -29,29 +33,57 @@ type ServiceLog interface {
 	Panic(format string, args ...interface{})
 }
 
+type ServiceLog interface {
+	ServiceLogStream
+
+	Started()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 type serviceLogSession struct {
-	log    ServiceLog
-	prefix string
+	log      ServiceLogStream
+	prefix   string
+	isClosed bool
 }
 
-func newLogSession(log ServiceLog, prefix string) ServiceLog {
+func newLogSession(log ServiceLogStream, prefix string) ServiceLogStream {
 	return &serviceLogSession{log: log, prefix: "[" + prefix + "] "}
 }
 
-func (log *serviceLogSession) NewSession(prefix string) ServiceLog {
+func (log *serviceLogSession) NewSession(prefix string) ServiceLogStream {
 	return newLogSession(log, prefix)
 }
 
-func (log *serviceLogSession) CheckExit(
-	panicErr interface{},
-	getPanicDetails func() string,
-) {
-	log.log.CheckExit(panicErr, getPanicDetails)
+func (log *serviceLogSession) CheckExit(panicValue interface{}) {
+	log.close()
+	log.checkPanic(panicValue)
 }
 
-func (log serviceLogSession) Started() { log.log.Started() }
+func (log *serviceLogSession) CheckExitWithPanicDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	log.close()
+	log.checkPanicWithDetails(panicValue, getPanicDetails)
+}
+
+func (log *serviceLogSession) checkPanic(panicValue interface{}) {
+	log.log.checkPanic(panicValue)
+}
+func (log *serviceLogSession) checkPanicWithDetails(
+	panicValue interface{},
+	getPanicDetails func() string) {
+	log.log.checkPanicWithDetails(panicValue, getPanicDetails)
+}
+
+func (log *serviceLogSession) close() {
+	if log.isClosed {
+		log.Error("Log session is already closed.")
+		return
+	}
+	log.isClosed = true
+}
 
 func (log serviceLogSession) Debug(format string, args ...interface{}) {
 	log.log.Debug(log.prefix+format, args...)

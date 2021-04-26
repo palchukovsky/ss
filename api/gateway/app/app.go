@@ -15,22 +15,13 @@ func Init(
 	initService func(projectPackage string),
 ) {
 	initService("app")
-	defer func() {
-		ss.S.Log().CheckExit(
-			recover(),
-			func() string { return "service initialization" })
-	}()
+	defer ss.S.Log().CheckExit(recover())
 	service = ws.NewService(newLambda())
 }
 
 // Run runs the API app-lambda.
 func Run() {
-	defer func() {
-		ss.S.Log().CheckExit(
-			recover(),
-			func() string { return "running" })
-	}()
-
+	defer ss.S.Log().CheckExit(recover())
 	service.Start()
 }
 

@@ -23,11 +23,6 @@ func ForEachTable(
 		installer.NewTables(db, log),
 		newConnectionTable(db, log),
 		newUserTable(db, log))
-	defer func() {
-		log.CheckExit(
-			recover(),
-			func() string { return "each table callbacking" })
-	}()
 
 	for _, table := range tables {
 		table.Log().Debug("Processing...")

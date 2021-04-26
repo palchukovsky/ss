@@ -18,7 +18,7 @@ import (
 
 // Request describes request to lambda.
 type Request interface {
-	Log() ss.ServiceLog
+	Log() ss.ServiceLogStream
 
 	ReadRequest(interface{}) error
 

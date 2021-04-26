@@ -17,11 +17,7 @@ func Init(
 
 func Run(installer api.Installer) {
 	log := ss.S.Log()
-	defer func() {
-		log.CheckExit(
-			recover(),
-			func() string { return "running" })
-	}()
+	defer log.CheckExit(recover())
 	log.Started()
 
 	client := install.NewClient()

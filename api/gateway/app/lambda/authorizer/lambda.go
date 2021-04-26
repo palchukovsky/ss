@@ -18,11 +18,7 @@ import (
 func Run(initService func(projectPackage string, params ss.ServiceParams)) {
 
 	initService("app", ss.ServiceParams{IsAuth: true})
-	defer func() {
-		ss.S.Log().CheckExit(
-			recover(),
-			func() string { return "running" })
-	}()
+	defer ss.S.Log().CheckExit(recover())
 
 	config := ss.S.Config()
 	policy = events.APIGatewayCustomAuthorizerPolicy{
@@ -66,11 +62,7 @@ var authHeaderNameLower = strings.ToLower(authHeaderName)
 var policy events.APIGatewayCustomAuthorizerPolicy
 
 func handle(ctx context.Context, request request) (response, error) {
-	defer func() {
-		ss.S.Log().CheckExit(
-			recover(),
-			func() string { return "handling" })
-	}()
+	defer ss.S.Log().CheckExit(recover())
 
 	accessToken, hasAccessToken := request.Headers[authHeaderName]
 	if !hasAccessToken {
@@ -120,12 +112,12 @@ func handle(ctx context.Context, request request) (response, error) {
 	return result, nil
 }
 
-func getLog(request request) ss.ServiceLog {
+func getLog(request request) ss.ServiceLogStream {
 	return ss.S.Log().NewSession(
 		fmt.Sprintf("*.%s", request.RequestContext.RequestID))
 }
 
-func getUserLog(request request, user ss.UserID) ss.ServiceLog {
+func getUserLog(request request, user ss.UserID) ss.ServiceLogStream {
 	return ss.S.Log().NewSession(fmt.Sprintf("%s..%s",
 		user, request.RequestContext.RequestID))
 }

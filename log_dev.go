@@ -16,20 +16,44 @@ func newServiceLog(projectPackage, module string, config Config) ServiceLog {
 	return &serviceLog{}
 }
 
-func (serviceLog *serviceLog) NewSession(prefix string) ServiceLog {
+func (serviceLog *serviceLog) NewSession(prefix string) ServiceLogStream {
 	return newLogSession(serviceLog, prefix)
 }
 
-func (serviceLog *serviceLog) CheckExit(
-	panicErr interface{},
+func (serviceLog *serviceLog) CheckExit(panicValue interface{}) {
+	serviceLog.checkPanic(panicValue)
+}
+
+func (serviceLog *serviceLog) CheckExitWithPanicDetails(
+	panicValue interface{},
 	getPanicDetails func() string,
 ) {
-	if panicErr == nil || serviceLog.isPanic {
+	serviceLog.checkPanicWithDetails(panicValue, getPanicDetails)
+}
+
+func (serviceLog *serviceLog) checkPanic(panicValue interface{}) {
+	serviceLog.checkPanicWithDetails(panicValue, nil)
+}
+
+func (serviceLog *serviceLog) checkPanicWithDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	if panicValue == nil {
+		return
+	}
+
+	if serviceLog.isPanic {
+		panic(panicValue)
+	}
+
+	if getPanicDetails == nil {
+		serviceLog.Panic(`Panic detected: "%v".`, panicValue)
 		return
 	}
 	serviceLog.Panic(
-		`Panic detected: "%v". Details: %s`,
-		panicErr,
+		`Panic detected: "%v". Details: %s.`,
+		panicValue,
 		getPanicDetails())
 }
 

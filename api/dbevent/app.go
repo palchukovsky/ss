@@ -15,22 +15,13 @@ func Init(
 	initService func(projectPackage string),
 ) {
 	initService("dbevent")
-	defer func() {
-		ss.S.Log().CheckExit(
-			recover(),
-			func() string { return "service initialization" })
-	}()
+	defer ss.S.Log().CheckExit(recover())
 	service = dbeventlambda.NewService(newLambda())
 }
 
 // Run runs the API dbevent-lambda.
 func Run() {
-	defer func() {
-		ss.S.Log().CheckExit(
-			recover(),
-			func() string { return "running" })
-	}()
-
+	defer ss.S.Log().CheckExit(recover())
 	service.Start()
 }
 

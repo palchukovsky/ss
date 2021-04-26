@@ -22,12 +22,6 @@ func ForEachGateway(
 		installer.NewGateways(log),
 		newAuthGateway(log),
 		newAppGateway(log))
-	defer func() {
-		log.CheckExit(
-			recover(),
-			func() string { return "each gataway callbacking" })
-
-	}()
 
 	for _, gateway := range gateways {
 		gateway.Log().Debug("Processing...")

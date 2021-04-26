@@ -24,13 +24,13 @@ func NewRequest(
 
 // Request implements request method for output gateway.
 type Request struct {
-	log          ss.ServiceLog
+	log          ss.ServiceLogStream
 	gateway      lambda.Gateway
 	ResponseBody interface{}
 }
 
 // Log returns request log session.
-func (request Request) Log() ss.ServiceLog { return request.log }
+func (request Request) Log() ss.ServiceLogStream { return request.log }
 
 // Response responses to request with given data.
 func (request *Request) Respond(response interface{}) {

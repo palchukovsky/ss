@@ -40,11 +40,7 @@ func (service service) Start() {
 func (service service) handle(request awsRequest) (awsResponse, error) {
 
 	lambdaRequest := newRequest(request, service.Gateway, service.context)
-	defer func() {
-		lambdaRequest.Log().CheckExit(
-			recover(),
-			func() string { return "handling REST request" })
-	}()
+	defer lambdaRequest.Log().CheckExit(recover())
 
 	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug(

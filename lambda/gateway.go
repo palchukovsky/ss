@@ -33,6 +33,7 @@ func NewGateway() Gateway {
 				config.AWS.AccessKey.Secret,
 				"",
 			),
+			Endpoint: aws.String(config.AWS.Gateway.App.Endpoint),
 		},
 	)
 	if err != nil {
@@ -45,7 +46,9 @@ type gateway struct {
 	client *apigatewaymanagementapi.ApiGatewayManagementApi
 }
 
-func (gateway gateway) Send(connection ConnectionID, data interface{},
+func (gateway gateway) Send(
+	connection ConnectionID,
+	data interface{},
 ) (bool, error) {
 	serializeData, err := gateway.Serialize(data)
 	if err != nil {
@@ -54,7 +57,9 @@ func (gateway gateway) Send(connection ConnectionID, data interface{},
 	return gateway.SendSerialized(connection, serializeData)
 }
 
-func (gateway gateway) SendSerialized(connection ConnectionID, data []byte,
+func (gateway gateway) SendSerialized(
+	connection ConnectionID,
+	data []byte,
 ) (bool, error) {
 	request, _ := gateway.
 		client.

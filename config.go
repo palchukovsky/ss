@@ -35,6 +35,8 @@ type ServiceConfig struct {
 		Gateway   struct {
 			App struct {
 				ID string `json:"id"`
+				// Endpoint the the app API gateway full path, set by builder
+				Endpoint string `json:"endpoint"`
 			} `json:"app"`
 			Auth struct {
 				ID string `json:"id"`

@@ -8,7 +8,7 @@ import (
 	gatewayinstall "github.com/palchukovsky/ss/gateway/install"
 )
 
-func newAppGateway(id string, log ss.ServiceLog) gatewayinstall.Gateway {
+func newAppGateway(id string, log ss.ServiceLogStream) gatewayinstall.Gateway {
 	return gatewayinstall.NewGateway(
 		id,
 		"app",

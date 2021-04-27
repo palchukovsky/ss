@@ -23,11 +23,6 @@ func ForEachTable(
 		installer.NewTables(db, log),
 		newConnectionTable(db, log),
 		newUserTable(db, log))
-	defer func() {
-		for _, table := range tables {
-			table.Log().CheckExit()
-		}
-	}()
 
 	for _, table := range tables {
 		table.Log().Debug("Processing...")

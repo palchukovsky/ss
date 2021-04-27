@@ -35,6 +35,8 @@ type ServiceConfig struct {
 	} `json:"privateKey"`
 }
 
+func (ServiceConfig) IsExtraLogEnabled() bool { return !S.Build().IsProd() }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 type AWSConfig struct {
@@ -44,6 +46,8 @@ type AWSConfig struct {
 	Gateway   struct {
 		App struct {
 			ID string `json:"id"`
+			// Endpoint is the app API gateway full path, set by builder.
+			Endpoint string `json:"endpoint"`
 		} `json:"app"`
 		Auth struct {
 			ID string `json:"id"`

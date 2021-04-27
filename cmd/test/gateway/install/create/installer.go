@@ -36,7 +36,7 @@ type gatewayRESTCommadsReader struct{}
 
 func (gatewayRESTCommadsReader) Read(
 	name string,
-	log ss.ServiceLog,
+	log ss.ServiceLogStream,
 ) ([]gatewayinstall.Command, error) {
 	cmd, err := gatewayinstall.NewRESTCommand(
 		"TestCmd",

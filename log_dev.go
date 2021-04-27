@@ -14,17 +14,46 @@ func NewServiceDevLog(projectPackage, module string) ServiceLog {
 
 type serviceDevLog struct{ isPanic bool }
 
-func (serviceLog *serviceDevLog) NewSession(prefix string) ServiceLog {
+
+func (serviceLog *serviceDevLog) NewSession(prefix string) ServiceLogStream {
 	return newLogSession(serviceLog, prefix)
 }
 
-func (serviceLog *serviceDevLog) CheckExit() {
-	if serviceLog.isPanic {
+func (serviceLog *serviceDevLog) CheckExit(panicValue interface{}) {
+	serviceLog.checkPanic(panicValue)
+}
+
+func (serviceLog *serviceDevLog) CheckExitWithPanicDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	serviceLog.checkPanicWithDetails(panicValue, getPanicDetails)
+}
+
+func (serviceLog *serviceDevLog) checkPanic(panicValue interface{}) {
+	serviceLog.checkPanicWithDetails(panicValue, nil)
+}
+
+func (serviceLog *serviceDevLog) checkPanicWithDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	if panicValue == nil {
 		return
 	}
-	if err := recover(); err != nil {
-		serviceLog.Panic(`Panic detected: "%v".`, err)
+
+	if serviceLog.isPanic {
+		panic(panicValue)
 	}
+
+	if getPanicDetails == nil {
+		serviceLog.Panic(`Panic detected: "%v".`, panicValue)
+		return
+	}
+	serviceLog.Panic(
+		`Panic detected: "%v". Details: %s.`,
+		panicValue,
+		getPanicDetails())
 }
 
 func (serviceLog serviceDevLog) Started() {

@@ -16,7 +16,7 @@ import (
 // Table describes table installing interface.
 type Table interface {
 	GetName() string
-	Log() ss.ServiceLog
+	Log() ss.ServiceLogStream
 
 	Create() error
 	Delete() error
@@ -35,7 +35,7 @@ type TableAbstraction struct {
 	name   string
 	db     DB
 	record ssddb.DataRecord
-	log    ss.ServiceLog
+	log    ss.ServiceLogStream
 }
 
 func NewTableAbstraction(
@@ -52,9 +52,9 @@ func NewTableAbstraction(
 	return result
 }
 
-func (table TableAbstraction) GetName() string     { return table.name }
-func (table TableAbstraction) Log() ss.ServiceLog  { return table.log }
-func (table TableAbstraction) getAWSName() *string { return &table.name }
+func (table TableAbstraction) GetName() string          { return table.name }
+func (table TableAbstraction) Log() ss.ServiceLogStream { return table.log }
+func (table TableAbstraction) getAWSName() *string      { return &table.name }
 
 func (table TableAbstraction) Delete() error {
 	return table.db.DeleteTable(ddb.DeleteTableInput{

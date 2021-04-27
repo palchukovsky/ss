@@ -25,11 +25,6 @@ func ForEachGateway(
 	if id := ss.S.Config().AWS.Gateway.App.ID; id != "" {
 		gateways = append(gateways, newAppGateway(id, log))
 	}
-	defer func() {
-		for _, gateway := range gateways {
-			gateway.Log().CheckExit()
-		}
-	}()
 
 	for _, gateway := range gateways {
 		gateway.Log().Debug("Processing...")

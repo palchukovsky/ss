@@ -3,7 +3,7 @@
 
 package dbeventlambda
 
-// Lambda describes lambda to handle  DynamoDB event.
+// Lambda describes lambda to handle DynamoDB event.
 type Lambda interface {
 	Execute(Request) error
 }

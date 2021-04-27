@@ -13,7 +13,7 @@ import (
 
 type Gateway interface {
 	GetName() string
-	Log() ss.ServiceLog
+	Log() ss.ServiceLogStream
 
 	Create(Client) error
 }
@@ -23,11 +23,10 @@ func NewGateway(
 	id string,
 	name string,
 	reader GatewayCommadsReader,
-	log ss.ServiceLog,
+	log ss.ServiceLogStream,
 ) Gateway {
 
 	log = log.NewSession(name)
-	defer log.CheckExit()
 
 	commands, err := reader.Read(name, log)
 	if err != nil {
@@ -47,22 +46,22 @@ func NewGateway(
 ////////////////////////////////////////////////////////////////////////////////
 
 type GatewayCommadsReader interface {
-	Read(name string, log ss.ServiceLog) ([]Command, error)
+	Read(name string, log ss.ServiceLogStream) ([]Command, error)
 }
 
 func NewGatewayCommadsReader(
-	newCommand func(name string, path string, log ss.ServiceLog) (Command, error),
+	newCommand func(name, path string, log ss.ServiceLogStream) (Command, error),
 ) GatewayCommadsReader {
 	return gatewayCommadsReader{newCommand: newCommand}
 }
 
 type gatewayCommadsReader struct {
-	newCommand func(name string, path string, log ss.ServiceLog) (Command, error)
+	newCommand func(name, path string, log ss.ServiceLogStream) (Command, error)
 }
 
 func (reader gatewayCommadsReader) Read(
 	name string,
-	log ss.ServiceLog,
+	log ss.ServiceLogStream,
 ) ([]Command, error) {
 	result := []Command{}
 
@@ -97,12 +96,12 @@ func (reader gatewayCommadsReader) Read(
 type gateway struct {
 	id       string
 	name     string
-	log      ss.ServiceLog
+	log      ss.ServiceLogStream
 	commands []Command
 }
 
-func (gateway gateway) GetName() string    { return gateway.name }
-func (gateway gateway) Log() ss.ServiceLog { return gateway.log }
+func (gateway gateway) GetName() string          { return gateway.name }
+func (gateway gateway) Log() ss.ServiceLogStream { return gateway.log }
 
 func (gateway gateway) Create(client Client) error {
 	gatewayClient := client.NewGatewayClient(gateway.id)

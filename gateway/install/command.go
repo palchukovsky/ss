@@ -13,7 +13,7 @@ import (
 
 type Command interface {
 	GetName() string
-	Log() ss.ServiceLog
+	Log() ss.ServiceLogStream
 
 	Create(GatewayClient) error
 }
@@ -22,14 +22,14 @@ type Command interface {
 
 type command struct {
 	name string
-	log  ss.ServiceLog
+	log  ss.ServiceLogStream
 	path string
 }
 
 func newCommand(
 	name string,
 	path string,
-	log ss.ServiceLog,
+	log ss.ServiceLogStream,
 ) (command, error) {
 
 	result := command{
@@ -46,8 +46,8 @@ func newCommand(
 	return result, nil
 }
 
-func (command command) GetName() string    { return command.name }
-func (command command) Log() ss.ServiceLog { return command.log }
+func (command command) GetName() string          { return command.name }
+func (command command) Log() ss.ServiceLogStream { return command.log }
 
 func (command command) createModel(client GatewayClient) error {
 
@@ -79,7 +79,7 @@ func (command command) createModel(client GatewayClient) error {
 func NewRESTCommand(
 	name string,
 	path string,
-	log ss.ServiceLog,
+	log ss.ServiceLogStream,
 ) (Command, error) {
 	command, err := newCommand(name, path, log)
 	if err != nil {
@@ -107,7 +107,7 @@ func (command restCommand) createRoute(client GatewayClient) error {
 func NewWSCommand(
 	name string,
 	path string,
-	log ss.ServiceLog,
+	log ss.ServiceLogStream,
 ) (Command, error) {
 	command, err := newCommand(name, path, log)
 	if err != nil {

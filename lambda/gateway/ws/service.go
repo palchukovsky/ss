@@ -39,7 +39,7 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 	if err != nil {
 		return awsResponse{}, err
 	}
-	defer lambdaRequest.Log().CheckExit(recover())
+	defer func() { lambdaRequest.Log().CheckExit(recover()) }()
 
 	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug(

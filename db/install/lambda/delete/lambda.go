@@ -19,7 +19,7 @@ func Init(initService func(projectPackage string, params ss.ServiceParams)) {
 
 func Run(installer dbinstall.Installer) {
 	log := ss.S.Log()
-	defer log.CheckExit(recover())
+	defer func() { log.CheckExit(recover()) }()
 	log.Started()
 
 	db := ddbinstall.NewDB()

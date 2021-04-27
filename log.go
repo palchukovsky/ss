@@ -42,9 +42,8 @@ type ServiceLog interface {
 ////////////////////////////////////////////////////////////////////////////////
 
 type serviceLogSession struct {
-	log      ServiceLogStream
-	prefix   string
-	isClosed bool
+	log    ServiceLogStream
+	prefix string
 }
 
 func newLogSession(log ServiceLogStream, prefix string) ServiceLogStream {
@@ -56,7 +55,6 @@ func (log *serviceLogSession) NewSession(prefix string) ServiceLogStream {
 }
 
 func (log *serviceLogSession) CheckExit(panicValue interface{}) {
-	log.close()
 	log.checkPanic(panicValue)
 }
 
@@ -64,25 +62,18 @@ func (log *serviceLogSession) CheckExitWithPanicDetails(
 	panicValue interface{},
 	getPanicDetails func() string,
 ) {
-	log.close()
 	log.checkPanicWithDetails(panicValue, getPanicDetails)
 }
 
 func (log *serviceLogSession) checkPanic(panicValue interface{}) {
 	log.log.checkPanic(panicValue)
 }
+
 func (log *serviceLogSession) checkPanicWithDetails(
 	panicValue interface{},
-	getPanicDetails func() string) {
+	getPanicDetails func() string,
+) {
 	log.log.checkPanicWithDetails(panicValue, getPanicDetails)
-}
-
-func (log *serviceLogSession) close() {
-	if log.isClosed {
-		log.Error("Log session is already closed.")
-		return
-	}
-	log.isClosed = true
 }
 
 func (log serviceLogSession) Debug(format string, args ...interface{}) {

@@ -126,7 +126,7 @@ func (serviceLog *serviceLog) checkPanicWithDetails(
 		return
 	}
 	serviceLog.Panic(
-		`Panic detected: "%v". Details: %v.`,
+		`Panic detected: "%v". Details: %s.`,
 		panicValue,
 		getPanicDetails())
 }

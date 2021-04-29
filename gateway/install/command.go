@@ -4,6 +4,7 @@
 package gatewayinstall
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -90,20 +91,13 @@ func NewRESTCommand(
 
 type restCommand struct{ command }
 
-func (command restCommand) Create(client GatewayClient) error {
-	if err := command.createModel(client); err != nil {
-		return err
-	}
-	return command.createRoute(client)
+func (restCommand) Create(client GatewayClient) error {
+	return errors.New("not implemented")
 }
 
-func (command restCommand) createRoute(client GatewayClient) error {
-	return client.CreateRoute(command.name)
-}
+///////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
-
-// NewWSCommand creates command implementation to work with websockets gateways.
+//NewWSCommand creates command implementation to work with websockets gateways.
 func NewWSCommand(
 	name string,
 	path string,
@@ -118,6 +112,15 @@ func NewWSCommand(
 
 type wsCommand struct{ command }
 
-func (command wsCommand) Create(GatewayClient) error { return nil }
+func (command wsCommand) Create(client GatewayClient) error {
+	if err := command.createModel(client); err != nil {
+		return err
+	}
+	return command.createRoute(client)
+}
+
+func (command wsCommand) createRoute(client GatewayClient) error {
+	return client.CreateRoute(command.name)
+}
 
 ////////////////////////////////////////////////////////////////////////////////

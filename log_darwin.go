@@ -6,5 +6,5 @@
 package ss
 
 func newServiceLog(projectPackage, module string, config Config) ServiceLog {
-	return NewServiceDevLog(projectPackage, module, config)
+	return NewServiceDevLog(projectPackage, module)
 }

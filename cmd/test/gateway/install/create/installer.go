@@ -8,10 +8,10 @@ import (
 	gatewayinstall "github.com/palchukovsky/ss/gateway/install"
 )
 
-type installer struct{ restGatewayID string }
+type installer struct{ wsGatewayID string }
 
-func newInstaller(restGatewayID string) installer {
-	return installer{restGatewayID: restGatewayID}
+func newInstaller(wsGatewayID string) installer {
+	return installer{wsGatewayID: wsGatewayID}
 }
 
 func (installer installer) NewGateways(
@@ -19,26 +19,26 @@ func (installer installer) NewGateways(
 ) []gatewayinstall.Gateway {
 	return []gatewayinstall.Gateway{
 		gatewayinstall.NewGateway(
-			installer.restGatewayID,
-			"RESTTest",
-			newRESTGatewayCommadsReader(),
+			installer.wsGatewayID,
+			"WSTest",
+			newGatewayCommadsReader(),
 			log),
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newRESTGatewayCommadsReader() gatewayinstall.GatewayCommadsReader {
-	return gatewayRESTCommadsReader{}
+func newGatewayCommadsReader() gatewayinstall.GatewayCommadsReader {
+	return gatewayCommadsReader{}
 }
 
-type gatewayRESTCommadsReader struct{}
+type gatewayCommadsReader struct{}
 
-func (gatewayRESTCommadsReader) Read(
+func (gatewayCommadsReader) Read(
 	name string,
 	log ss.ServiceLogStream,
 ) ([]gatewayinstall.Command, error) {
-	cmd, err := gatewayinstall.NewRESTCommand(
+	cmd, err := gatewayinstall.NewWSCommand(
 		"TestCmd",
 		"./",
 		log)

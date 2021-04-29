@@ -13,16 +13,23 @@ import (
 )
 
 type service struct {
+	key    string
+	secret string
 	config ss.ServiceConfig
 	log    ss.ServiceLog
 	build  ss.Build
 }
 
-func newService(projectPackage string, config ss.ServiceConfig) service {
+func newService(
+	projectPackage string,
+	key string,
+	secret string,
+	config ss.ServiceConfig) service {
 
 	return service{
-		config: config,
-		log:    ss.NewServiceDevLog(projectPackage, "test/gateway/install/create"),
+		key:    key,
+		secret: secret, config: config,
+		log: ss.NewServiceDevLog(projectPackage, "test/gateway/install/create"),
 		build: ss.Build{
 			Version:    "test",
 			Commit:     "local",
@@ -40,8 +47,30 @@ func (s service) Config() ss.ServiceConfig            { return s.config }
 func (s service) Build() ss.Build                     { return s.build }
 func (service) NewBuildEntityName(name string) string { return "test_" + name }
 
+type credentials struct {
+	key    string
+	secret string
+}
+
+func (credentials credentials) Retrieve(
+	context.Context,
+) (aws.Credentials, error) {
+	return aws.Credentials{
+			AccessKeyID:     credentials.key,
+			SecretAccessKey: credentials.secret,
+		},
+		nil
+}
+
 func (s service) NewAWSConfig() aws.Config {
-	result, err := config.LoadDefaultConfig(context.TODO())
+	result, err := config.LoadDefaultConfig(
+		context.TODO(),
+		config.WithRegion(s.Config().AWS.Region),
+		config.WithCredentialsProvider(
+			credentials{
+				key:    s.key,
+				secret: s.secret,
+			}))
 	if err != nil {
 		s.Log().Panic(`Failed to load AWS config: "%v".`, err)
 	}

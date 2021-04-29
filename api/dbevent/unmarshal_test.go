@@ -8,14 +8,13 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/palchukovsky/ss"
 	apidbevent "github.com/palchukovsky/ss/api/dbevent"
 	"github.com/palchukovsky/ss/ddb"
 	"github.com/stretchr/testify/assert"
 )
 
 type dbeventUnmarshalTestRecord struct {
-	ID        ss.EntityID  `json:"id"`
+	/*ID        ss.EntityID  `json:"id"`
 	Spot      ss.EntityID  `json:"spot"`
 	Event     ss.EntityID  `json:"event"`
 	Partition [1 + 16]byte `json:"partition"`
@@ -38,14 +37,14 @@ type dbeventUnmarshalTestRecord struct {
 		Description    string `json:"desc,omitempty"`
 		Link           string `json:"link,omitempty"`
 		SpotVisibility uint   `json:"spotVisible"`
-	} `json:"snapshot"`
+	} `json:"snapshot"`*/
 	FireTime *ddb.DateOrTime `json:"fire,omitempty"`
 }
 
 func Test_API_Dbevent_Unmarshal(test *testing.T) {
 	assert := assert.New(test)
 
-	sourceJson := `{"event":{"B":"FyUFoPjuT4iTSHKgIfJ1lg=="},"fire":{"N":"16191216000"},"id":{"B":"WJ+hqZMXRfuNuwU2GEXvog=="},"partition":{"B":"dU9MP7gMrEiCl+e1BtIt78E="},"rights":{"M":{"spot":{"M":{"base":{"N":"700"}}}}},"snapshot":{"M":{"desc":{"S":"Classical"},"loc":{"M":{"latLng":{"L":[{"N":"55.012302"},{"N":"82.92438"}]},"name":{"L":[{"S":"Памятник императору Александру III"},{"S":"Обская ул., Новосибирск, Russia"}]}}},"spotVisible":{"N":"700"},"start":{"N":"16191216000"}}},"spot":{"B":"XQDi12OcRiW0tRxBslkUzQ=="},"user":{"B":"Bfyj8A+WRBCrBlIs10c2/w=="},"ver":{"N":"1"}}`
+	sourceJson := `{"event":{"B":"qGq9X5sxRiel/FK5Y0kKGA=="},"fire":{"N":"16197525000"},"id":{"B":"3twB+YpHTimJj3a/+7G1ew=="},"partition":{"B":"dRATLRiFHEBOk+KPmWTJk+OPYMLb5XVMW7EeUj8Fx3Q8"},"rights":{"M":{"spot":{"M":{"base":{"N":"100"}}}}},"snapshot":{"M":{"desc":{"S":"Edited event description 123@"},"loc":{"M":{"latLng":{"L":[{"N":"48.218597"},{"N":"16.363022"}]},"name":{"L":[{"S":"Berggasse 19"},{"S":"Vienna, Austria"}]}}},"spotVisible":{"N":"700"},"start":{"N":"16197525000"}}},"spot":{"B":"IutVALucTQymUncp7AegSA=="},"user":{"B":"EBMtGIUcQE6T4o+ZZMmT4w=="},"ver":{"N":"2"}}`
 
 	source := map[string]events.DynamoDBAttributeValue{}
 	assert.NoError(
@@ -59,14 +58,6 @@ func Test_API_Dbevent_Unmarshal(test *testing.T) {
 			source,
 			&record))
 
-	// It's not required to compare all fields, just several to see that
-	// it has wrote somthing into result.
-	assert.NotNil(record.Snapshot.Location)
-	assert.Equal(2, len(record.Snapshot.Location.Name))
-	assert.Equal(
-		"Памятник императору Александру III",
-		record.Snapshot.Location.Name[0])
-	assert.Equal(
-		"Обская ул., Новосибирск, Russia",
-		record.Snapshot.Location.Name[1])
+	assert.Empty(record.FireTime.Value.Get().String())
+
 }

@@ -58,8 +58,10 @@ func (client gatewayClient) CreateModel(name, schema string) error {
 
 func (client gatewayClient) CreateRoute(name string) error {
 	input := apigatewayv2.CreateRouteInput{
-		ApiId:    client.id,
-		RouteKey: aws.String(name),
+		ApiId:                    client.id,
+		RouteKey:                 aws.String(name),
+		ModelSelectionExpression: aws.String("$request.body.m"),
+		RequestModels:            map[string]string{"$default": name},
 	}
 	_, err := client.client.CreateRoute(context.TODO(), &input)
 	return err

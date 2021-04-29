@@ -17,25 +17,33 @@ var (
 	region          = flag.String("region", "", "AWS region")
 	accessKeyID     = flag.String("key", "", "AWS access key ID")
 	accessKeySecret = flag.String("secret", "", "AWS access key secret")
-	restGatewayID   = flag.String("secret", "",
-		"AWS API gateway ID for REST endpoint")
+	wsGatewayID     = flag.String("wsGateway", "",
+		"AWS API gateway ID for websocket endpont")
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
 func init() {
+	flag.Parse()
+
 	lambda.Init(
 		func(projectPackage string, params ss.ServiceParams) {
-			ss.Set(newService(projectPackage, ss.ServiceConfig{
-				AWS: ss.AWSConfig{
-					AccountID: *accountID,
-					Region:    *region,
-					AccessKey: ss.NewAWSAccessKey(*accessKeyID, *accessKeySecret),
-				},
-			}))
+			ss.Set(
+				newService(
+					projectPackage,
+					*accessKeyID,
+					*accessKeySecret,
+					ss.ServiceConfig{
+						AWS: ss.AWSConfig{
+							AccountID: *accountID,
+							Region:    *region,
+						},
+					}))
 		})
 }
 
-func main() { lambda.Run(newInstaller(*restGatewayID)) }
+func main() {
+	lambda.Run(newInstaller(*wsGatewayID))
+}
 
 ////////////////////////////////////////////////////////////////////////////////

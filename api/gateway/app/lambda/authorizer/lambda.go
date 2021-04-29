@@ -18,7 +18,7 @@ import (
 func Run(initService func(projectPackage string, params ss.ServiceParams)) {
 
 	initService("app", ss.ServiceParams{IsAuth: true})
-	defer ss.S.Log().CheckExit(recover())
+	defer func() { ss.S.Log().CheckExit(recover()) }()
 
 	config := ss.S.Config()
 	policy = events.APIGatewayCustomAuthorizerPolicy{
@@ -62,7 +62,7 @@ var authHeaderNameLower = strings.ToLower(authHeaderName)
 var policy events.APIGatewayCustomAuthorizerPolicy
 
 func handle(ctx context.Context, request request) (response, error) {
-	defer ss.S.Log().CheckExit(recover())
+	defer func() { ss.S.Log().CheckExit(recover()) }()
 
 	accessToken, hasAccessToken := request.Headers[authHeaderName]
 	if !hasAccessToken {

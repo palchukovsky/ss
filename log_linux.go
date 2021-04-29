@@ -117,8 +117,6 @@ func (serviceLog *serviceLog) checkPanicWithDetails(
 	}
 
 	defer serviceLog.flushSentry()
-	serviceLog.syncLog()
-
 	sentry.CurrentHub().Recover(panicValue)
 
 	if panicValue == nil {

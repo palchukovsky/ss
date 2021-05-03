@@ -306,17 +306,17 @@ func (l serviceLog) sync() {
 		return nil
 	})
 
-	doneSingalChan := make(chan struct{})
-	defer close(doneSingalChan)
+	doneSignalChan := make(chan struct{})
+	defer close(doneSignalChan)
 	go func() {
 		wait.Wait()
-		doneSingalChan <- struct{}{}
+		doneSignalChan <- struct{}{}
 	}()
 
 	// Common timeout for all logs, as lambda has runtime time limit.
 	timeoutChan := time.After(2750 * time.Millisecond)
 	select {
-	case <-doneSingalChan:
+	case <-doneSignalChan:
 		break
 	case <-timeoutChan:
 		l.Error("Log sync timeout.")

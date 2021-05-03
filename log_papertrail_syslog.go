@@ -104,7 +104,7 @@ func (p papertrail) runWriter() {
 	for {
 		message, isOpen := <-p.messageChan
 		if !isOpen {
-			return
+			break
 		}
 
 		if message.Write == nil {
@@ -119,7 +119,9 @@ func (p papertrail) runWriter() {
 			message.Message+" "+strconv.Itoa(sequenceNumber))
 		if err != nil {
 			log.Printf(
-				`Error: Failed to write log %q record: %v`, p.GetName(), err)
+				`Error: Failed to write log %q record: %v`,
+				p.GetName(),
+				err)
 			p.sentry.CaptureException(
 				fmt.Errorf(`Failed to write log %q record: %w`, p.GetName(), err))
 		}

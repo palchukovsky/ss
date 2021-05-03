@@ -113,13 +113,15 @@ func (l loggly) runWriter() {
 	for {
 		message, isOpen := <-l.messageChan
 		if !isOpen {
-			return
+			break
 		}
 
 		if message.Write == nil {
 			if err := l.client.Flush(); err != nil {
 				log.Printf(
-					`Error: Failed to sync log %q record: %v`, l.GetName(), err)
+					`Error: Failed to sync log %q record: %v`,
+					l.GetName(),
+					err)
 				l.sentry.CaptureException(
 					fmt.Errorf(`Failed to sync log %q record: %w`, l.GetName(), err))
 			}
@@ -134,7 +136,9 @@ func (l loggly) runWriter() {
 			message.Message+" "+strconv.Itoa(sequenceNumber))
 		if err != nil {
 			log.Printf(
-				`Error: Failed to write log %q record: %v`, l.GetName(), err)
+				`Error: Failed to write log %q record: %v`,
+				l.GetName(),
+				err)
 			l.sentry.CaptureException(
 				fmt.Errorf(`Failed to write log %q record: %w`, l.GetName(), err))
 		}

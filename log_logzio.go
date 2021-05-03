@@ -100,13 +100,15 @@ func (l logzio) runWriter() {
 	for {
 		message, isOpen := <-l.messageChan
 		if !isOpen {
-			return
+			break
 		}
 
 		if len(message.Tag) == 0 {
 			if err := l.sender.Sync(); err != nil {
 				log.Printf(
-					`Error: Failed to sync log %q record: %v`, l.GetName(), err)
+					`Error: Failed to sync log %q record: %v`,
+					l.GetName(),
+					err)
 				l.sentry.CaptureException(
 					fmt.Errorf(`Failed to sync log %q record: %w`, l.GetName(), err))
 			}
@@ -124,7 +126,9 @@ func (l logzio) runWriter() {
 				sequenceNumber)))
 		if err != nil {
 			log.Printf(
-				`Error: Failed to write log %q record: %v`, l.GetName(), err)
+				`Error: Failed to write log %q record: %v`,
+				l.GetName(),
+				err)
 			l.sentry.CaptureException(
 				fmt.Errorf(`Failed to write log %q record: %w`, l.GetName(), err))
 		}

@@ -82,6 +82,20 @@ func newServiceLog(
 	}
 
 	{
+		loggly, err := newLogglyIfSet(
+			projectPackage,
+			module,
+			config,
+			result.sentry)
+		if err != nil {
+			log.Panicf("Failed to init Loggly: %v", err)
+		}
+		if loggly != nil {
+			result.destinations = append(result.destinations, loggly)
+		}
+	}
+
+	{
 		logzio, err := newLogzioIfSet(
 			projectPackage,
 			module,

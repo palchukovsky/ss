@@ -52,7 +52,7 @@ type papertrail struct {
 }
 
 type papertrailMessage struct {
-	Write   func(w *syslog.Writer, m string) error
+	Write   func(writer *syslog.Writer, message string) error
 	Message string
 	Type    string
 }
@@ -118,17 +118,10 @@ func (p papertrail) runWriter() {
 			p.writer,
 			message.Message+" "+strconv.Itoa(sequenceNumber))
 		if err != nil {
-			errMessage := fmt.Sprintf(
-				`Error: Failed to write log %q record: %v`,
-				p.GetName(),
-				err)
-			log.Println(errMessage)
-			if err != p.sentry.CaptureMessage(errMessage) {
-				log.Printf(
-					"Failed to capture message about %q by Sentry: %v",
-					p.GetName(),
-					err)
-			}
+			log.Printf(
+				`Error: Failed to write log %q record: %v`, p.GetName(), err)
+			p.sentry.CaptureException(
+				fmt.Errorf(`Failed to write log %q record: %w`, p.GetName(), err))
 		}
 	}
 }

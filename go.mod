@@ -19,6 +19,7 @@ require (
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/logzio/logzio-go v0.0.0-20200316143903-ac8fc0e2910e
+	github.com/segmentio/go-loggly v0.5.0
 	github.com/shirou/gopsutil v3.21.4+incompatible // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0 // indirect

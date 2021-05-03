@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	lib "github.com/logzio/logzio-go"
+	logziolib "github.com/logzio/logzio-go"
 )
 
 func newLogzioIfSet(
@@ -28,9 +28,9 @@ func newLogzioIfSet(
 	}
 
 	var err error
-	result.sender, err = lib.New(
+	result.sender, err = logziolib.New(
 		config.SS.Log.Logzio.Token,
-		lib.SetUrl(config.SS.Log.Logzio.URL),
+		logziolib.SetUrl(config.SS.Log.Logzio.URL),
 	)
 	if err != nil {
 		panic(err)
@@ -44,7 +44,7 @@ func newLogzioIfSet(
 type logzio struct {
 	messageChan chan logzioMessage
 	syncChan    chan struct{}
-	sender      *lib.LogzioSender
+	sender      *logziolib.LogzioSender
 	sentry      sentry
 }
 
@@ -105,17 +105,10 @@ func (l logzio) runWriter() {
 
 		if len(message.Tag) == 0 {
 			if err := l.sender.Sync(); err != nil {
-				errMessage := fmt.Sprintf(
-					`Error: Failed to sync log %q: %v`,
-					l.GetName(),
-					err)
-				log.Println(errMessage)
-				if err != l.sentry.CaptureMessage(errMessage) {
-					log.Printf(
-						"Failed to capture message sync error %q by Sentry: %v",
-						l.GetName(),
-						err)
-				}
+				log.Printf(
+					`Error: Failed to sync log %q record: %v`, l.GetName(), err)
+				l.sentry.CaptureException(
+					fmt.Errorf(`Failed to sync log %q record: %w`, l.GetName(), err))
 			}
 			l.syncChan <- struct{}{}
 			continue
@@ -130,17 +123,10 @@ func (l logzio) runWriter() {
 				message,
 				sequenceNumber)))
 		if err != nil {
-			errMessage := fmt.Sprintf(
-				`Error: Failed to write log %q record: %v`,
-				l.GetName(),
-				err)
-			log.Println(errMessage)
-			if err != l.sentry.CaptureMessage(errMessage) {
-				log.Printf(
-					"Failed to capture message about %q by Sentry: %v",
-					l.GetName(),
-					err)
-			}
+			log.Printf(
+				`Error: Failed to write log %q record: %v`, l.GetName(), err)
+			l.sentry.CaptureException(
+				fmt.Errorf(`Failed to write log %q record: %w`, l.GetName(), err))
 		}
 	}
 }

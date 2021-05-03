@@ -32,8 +32,8 @@
       }
     },
     "log": {
-      "papertrail": "",
-      "sentry": ""
+      "papertrail": "optional",
+      "sentry": "optional"
     }
   }
 }

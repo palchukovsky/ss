@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 // ServiceLog describes product log interface.
@@ -267,9 +269,35 @@ func (l *serviceLog) writePanic(message string) {
 }
 
 func (l serviceLog) sync() {
-	l.forEachDestination(func(l logDestination) error {
-		return l.Sync()
+
+	var wait sync.WaitGroup
+	l.forEachDestination(func(d logDestination) error {
+		wait.Add(1)
+		go func() {
+			err := d.Sync()
+			wait.Done()
+			if err != nil {
+				l.Error("Failed to sync log  %q: %v", d.GetName(), err)
+			}
+		}()
+		return nil
 	})
+
+	doneSingalChan := make(chan struct{})
+	defer close(doneSingalChan)
+	go func() {
+		wait.Wait()
+		doneSingalChan <- struct{}{}
+	}()
+
+	// Common timeout for all logs, as lambda has runtime time limit.
+	timeoutChan := time.After(2750 * time.Millisecond)
+	select {
+	case <-doneSingalChan:
+		break
+	case <-timeoutChan:
+		l.Error("Log sync timeout.")
+	}
 }
 
 func (l serviceLog) forEachDestination(callback func(logDestination) error) {

@@ -80,7 +80,21 @@ func newServiceLog(
 	}
 
 	{
-		papertrail, err := newPapertrailLogIfSet(
+		logzio, err := newLogzioIfSet(
+			projectPackage,
+			module,
+			config,
+			result.sentry)
+		if err != nil {
+			log.Panicf("Failed to init Logz.io: %v", err)
+		}
+		if logzio != nil {
+			result.destinations = append(result.destinations, logzio)
+		}
+	}
+
+	{
+		papertrail, err := newPapertrailIfSet(
 			projectPackage,
 			module,
 			config,

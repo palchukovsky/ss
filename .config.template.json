@@ -33,7 +33,12 @@
     },
     "log": {
       "papertrail": "optional",
-      "sentry": "optional"
+      "sentry": "optional",
+      "logzio": {
+        "_comment": "Logzio setup is optional.",
+        "token": "",
+        "url": ""
+      }
     }
   }
 }

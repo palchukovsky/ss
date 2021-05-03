@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-func newPapertrailLogIfSet(
+func newPapertrailIfSet(
 	projectPackage,
 	module string,
 	config Config,

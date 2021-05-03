@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-func newPapertrailLogIfSet(
+func newPapertrailIfSet(
 	projectPackage,
 	module string,
 	config Config,
@@ -23,8 +23,8 @@ func newPapertrailLogIfSet(
 		return nil, nil
 	}
 
-	result := papertrailLog{
-		messageChan: make(chan papertrailLogMessage, 3),
+	result := papertrail{
+		messageChan: make(chan papertrailMessage, 10),
 		syncChan:    make(chan struct{}),
 		sentry:      sentry,
 	}
@@ -41,26 +41,26 @@ func newPapertrailLogIfSet(
 
 	go result.runWriter()
 
-	return &result, nil
+	return result, nil
 }
 
-type papertrailLog struct {
-	messageChan chan papertrailLogMessage
+type papertrail struct {
+	messageChan chan papertrailMessage
 	syncChan    chan struct{}
 	writer      *syslog.Writer
 	sentry      sentry
 }
 
-type papertrailLogMessage struct {
+type papertrailMessage struct {
 	Write   func(w *syslog.Writer, m string) error
 	Message string
 	Type    string
 }
 
-func (papertrailLog) GetName() string { return "Papertrail" }
+func (papertrail) GetName() string { return "Papertrail" }
 
-func (pl papertrailLog) WriteDebug(message string) error {
-	pl.messageChan <- papertrailLogMessage{
+func (p papertrail) WriteDebug(message string) error {
+	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Debug(m) },
 		Message: message,
 		Type:    "Debug",
@@ -68,8 +68,8 @@ func (pl papertrailLog) WriteDebug(message string) error {
 	return nil
 }
 
-func (pl papertrailLog) WriteInfo(message string) error {
-	pl.messageChan <- papertrailLogMessage{
+func (p papertrail) WriteInfo(message string) error {
+	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Info(m) },
 		Message: message,
 		Type:    "Info",
@@ -77,8 +77,8 @@ func (pl papertrailLog) WriteInfo(message string) error {
 	return nil
 }
 
-func (pl papertrailLog) WriteWarn(message string) error {
-	pl.messageChan <- papertrailLogMessage{
+func (p papertrail) WriteWarn(message string) error {
+	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Warning(m) },
 		Message: message,
 		Type:    "Warn",
@@ -86,8 +86,8 @@ func (pl papertrailLog) WriteWarn(message string) error {
 	return nil
 }
 
-func (pl papertrailLog) WriteError(message string) error {
-	pl.messageChan <- papertrailLogMessage{
+func (p papertrail) WriteError(message string) error {
+	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Err(m) },
 		Message: message,
 		Type:    "Error",
@@ -95,45 +95,46 @@ func (pl papertrailLog) WriteError(message string) error {
 	return nil
 }
 
-func (pl *papertrailLog) WritePanic(message string) error {
-	return pl.writer.Emerg(message)
+func (p papertrail) WritePanic(message string) error {
+	return p.writer.Emerg(message)
 }
 
-func (pl papertrailLog) runWriter() {
+func (p papertrail) runWriter() {
 	sequenceNumber := 0
 	for {
-		message, isOpen := <-pl.messageChan
+		message, isOpen := <-p.messageChan
 		if !isOpen {
 			return
 		}
 
 		if message.Write == nil {
-			pl.syncChan <- struct{}{}
+			p.syncChan <- struct{}{}
 			continue
 		}
 
 		sequenceNumber++
 
 		err := message.Write(
-			pl.writer,
+			p.writer,
 			message.Message+" "+strconv.Itoa(sequenceNumber))
 		if err != nil {
 			errMessage := fmt.Sprintf(
-				`Error: Failed to write log record: %v`,
+				`Error: Failed to write log %q record: %v`,
+				p.GetName(),
 				err)
 			log.Println(errMessage)
-			if err != pl.sentry.CaptureMessage(errMessage) {
+			if err != p.sentry.CaptureMessage(errMessage) {
 				log.Printf(
-					"Failed to capture message about %s by Sentry: %v",
-					pl.GetName(),
+					"Failed to capture message about %q by Sentry: %v",
+					p.GetName(),
 					err)
 			}
 		}
 	}
 }
 
-func (pl papertrailLog) Sync() error {
-	pl.messageChan <- papertrailLogMessage{}
-	<-pl.syncChan
+func (p papertrail) Sync() error {
+	p.messageChan <- papertrailMessage{}
+	<-p.syncChan
 	return nil
 }

@@ -5,7 +5,6 @@ package ss
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -134,11 +133,22 @@ type serviceLog struct {
 
 func (l serviceLog) Started() {
 	build := S.Build()
+
+	var destinations string
+	l.forEachDestination(func(d logDestination) error {
+		if destinations != "" {
+			destinations += ", "
+		}
+		destinations += d.GetName()
+		return nil
+	})
+
 	l.Debug(
-		"Started %q ver %q on %q",
+		"Started %q ver %q on %q with %q",
 		build.ID,
 		build.Version,
-		S.Config().AWS.Region)
+		S.Config().AWS.Region,
+		destinations)
 }
 
 func (l *serviceLog) NewSession(prefix string) ServiceLogStream {
@@ -185,6 +195,7 @@ func (l *serviceLog) checkPanicWithDetails(
 
 func (l serviceLog) Debug(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
+	log.Println("Debug: " + message)
 	l.forEachDestination(func(d logDestination) error {
 		return d.WriteDebug(message)
 	})
@@ -203,9 +214,7 @@ func (l serviceLog) Warn(format string, args ...interface{}) {
 
 	log.Println("Warn: " + message)
 
-	if err := l.sentry.CaptureMessage(l.removePrefix(message)); err != nil {
-		l.Error("Failed capture message by Sentry: %v", err)
-	}
+	l.sentry.CaptureMessage(l.removePrefix(message))
 
 	l.forEachDestination(func(d logDestination) error {
 		return d.WriteWarn(message)
@@ -217,7 +226,7 @@ func (l serviceLog) Error(format string, args ...interface{}) {
 
 	log.Println("Error: " + message)
 
-	l.sentry.CaptureException(errors.New(l.removePrefix(message)))
+	l.sentry.CaptureMessage(l.removePrefix(message))
 
 	l.forEachDestination(func(d logDestination) error {
 		return d.WriteError(message)
@@ -315,11 +324,6 @@ func (l serviceLog) sync() {
 }
 
 func (l serviceLog) forEachDestination(callback func(logDestination) error) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Panicf("Failed to call log destination method: %v", err)
-		}
-	}()
 	for _, d := range l.destinations {
 		if err := callback(d); err != nil {
 			log.Printf(

@@ -4,7 +4,6 @@
 package ss
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 )
 
 type sentry interface {
-	CaptureMessage(string) error
+	CaptureMessage(string)
 	CaptureException(error)
 	Recover(interface{})
 	Flush()
@@ -64,22 +63,19 @@ func newSentry(
 
 type sentryDummy struct{}
 
-func (sentryDummy) CaptureMessage(message string) error { return nil }
-func (sentryDummy) CaptureException(err error)          {}
-func (sentryDummy) Recover(panicValue interface{})      {}
-func (sentryDummy) Flush()                              {}
+func (sentryDummy) CaptureMessage(message string)  {}
+func (sentryDummy) CaptureException(err error)     {}
+func (sentryDummy) Recover(panicValue interface{}) {}
+func (sentryDummy) Flush()                         {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type sentryConnect struct{}
 
-func (sentryConnect) CaptureMessage(message string) error {
+func (sentryConnect) CaptureMessage(message string) {
 	if sentryclient.CaptureMessage(message) == nil {
-		return fmt.Errorf(
-			"Failed to capture message by Sentry. Message: %s",
-			message)
+		log.Println("Failed to capture message by Sentry.")
 	}
-	return nil
 }
 
 func (sentryConnect) CaptureException(err error) {
@@ -89,11 +85,13 @@ func (sentryConnect) CaptureException(err error) {
 }
 
 func (sentryConnect) Recover(panicValue interface{}) {
-	sentryclient.CurrentHub().Recover(panicValue)
+	if sentryclient.CurrentHub().Recover(panicValue) == nil {
+		log.Println(`Failed to recover panic by Sentry.`)
+	}
 }
 
 func (sentryConnect) Flush() {
-	if !sentryclient.Flush(2 * time.Second) {
+	if !sentryclient.Flush(2750 * time.Millisecond) {
 		log.Println("Not all Sentry records were flushed, timeout was reached.")
 	}
 }

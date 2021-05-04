@@ -10,5 +10,5 @@ import (
 
 // Installer describes the database installing interface.
 type Installer interface {
-	NewTables(ddbinstall.DB, ss.ServiceLog) []ddbinstall.Table
+	NewTables(ddbinstall.DB, ss.Log) []ddbinstall.Table
 }

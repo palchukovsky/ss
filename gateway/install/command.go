@@ -13,7 +13,7 @@ import (
 
 type Command interface {
 	GetName() string
-	Log() ss.ServiceLogStream
+	Log() ss.LogStream
 
 	Create(GatewayClient) error
 }
@@ -22,14 +22,14 @@ type Command interface {
 
 type command struct {
 	name string
-	log  ss.ServiceLogStream
+	log  ss.LogStream
 	path string
 }
 
 func newCommand(
 	name string,
 	path string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) (command, error) {
 
 	result := command{
@@ -41,13 +41,14 @@ func newCommand(
 	result.name = strings.Title(result.name)
 	result.name = strings.ReplaceAll(result.name, " ", "")
 
-	result.log = log.NewSession(result.name)
+	result.log = log.NewSession(
+		ss.NewLogPrefix().AddVal("gatewayCommand", result.name))
 
 	return result, nil
 }
 
-func (command command) GetName() string          { return command.name }
-func (command command) Log() ss.ServiceLogStream { return command.log }
+func (command command) GetName() string   { return command.name }
+func (command command) Log() ss.LogStream { return command.log }
 
 func (command command) createModel(client GatewayClient) error {
 
@@ -79,7 +80,7 @@ func (command command) createModel(client GatewayClient) error {
 func NewRESTCommand(
 	name string,
 	path string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) (Command, error) {
 	command, err := newCommand(name, path, log)
 	if err != nil {
@@ -107,7 +108,7 @@ func (command restCommand) createRoute(client GatewayClient) error {
 func NewWSCommand(
 	name string,
 	path string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) (Command, error) {
 	command, err := newCommand(name, path, log)
 	if err != nil {

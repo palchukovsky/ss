@@ -26,36 +26,36 @@ func Run(installer dbinstall.Installer) {
 		func(table ddbinstall.Table) error { return table.Create() },
 		log)
 	if err != nil {
-		log.Panic(`Failed to create tables: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to create tables`).AddErr(err))
 	}
 
-	log.Info("Setupping...")
+	log.Info(ss.NewLogMsg("setupping..."))
 	err = dbinstall.ForEachTable(
 		installer,
 		db,
 		func(table ddbinstall.Table) error { return table.Setup() },
 		log)
 	if err != nil {
-		log.Panic(`Failed to setup tables: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to setup tables`).AddErr(err))
 	}
 
-	log.Info("Waiting...")
+	log.Info(ss.NewLogMsg("waiting..."))
 	err = dbinstall.ForEachTable(
 		installer,
 		db,
 		func(table ddbinstall.Table) error { return table.Wait() },
 		log)
 	if err != nil {
-		log.Panic(`Failed to wait table: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to wait table`).AddErr(err))
 	}
 
-	log.Info("Inserting data...")
+	log.Info(ss.NewLogMsg("inserting data..."))
 	err = dbinstall.ForEachTable(
 		installer,
 		db,
 		func(table ddbinstall.Table) error { return table.InsertData() },
 		log)
 	if err != nil {
-		log.Panic(`Failed to insert data into table: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to insert data into table`).AddErr(err))
 	}
 }

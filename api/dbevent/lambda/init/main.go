@@ -28,7 +28,7 @@ func Init(initService func(projectPackage string, params ss.ServiceParams)) {
 				result.message, err = result.gateway.Serialize(
 					response{Build: build.ID, Version: build.Version})
 				if err != nil {
-					ss.S.Log().Panic(`Failed to serialize: "%v".`, err)
+					ss.S.Log().Panic(ss.NewLogMsg(`failed to serialize`).AddErr(err))
 				}
 			}
 			return result
@@ -65,7 +65,7 @@ func (lambda lambda) execute(
 	}
 
 	connection := struct {
-		ID sslambda.ConnectionID `json:"id"`
+		ID ss.ConnectionID `json:"id"`
 	}{}
 	err := apidbevent.UnmarshalEventsDynamoDBAttributeValues(
 		event.Change.Keys, &connection)
@@ -78,7 +78,8 @@ func (lambda lambda) execute(
 		return err
 	}
 	if !isSent {
-		request.Log().Debug("%q already disconnected.", connection.ID)
+		request.Log().Debug(
+			ss.NewLogMsg("already disconnected").AddConnectionID(connection.ID))
 	}
 
 	return nil

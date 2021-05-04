@@ -29,11 +29,11 @@ func Init(initService func(projectPackage string, params ss.ServiceParams)) {
 				ss.S.Config().Firebase.GetJSON())
 			firebase, err := firebase.NewApp(context.Background(), nil, options)
 			if err != nil {
-				ss.S.Log().Panic(`Failed to init Firebase: "%v".`, err)
+				ss.S.Log().Panic(ss.NewLogMsg(`failed to init Firebase`).AddErr(err))
 			}
 			result.firebase, err = firebase.Auth(context.Background())
 			if err != nil {
-				ss.S.Log().Panic(`Failed auth Firebase: "%v".`, err)
+				ss.S.Log().Panic(ss.NewLogMsg(`failed auth Firebase`).AddErr(err))
 			}
 			return result
 		},
@@ -126,19 +126,21 @@ func (lambda lambda) Execute(request rest.Request) error {
 		}
 		if isNew {
 			request.Log().Info(
-				"New user %q added from Firebase through %q, access expires after %d mins.",
-				user.ID,
-				token.Firebase.SignInProvider,
-				int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes()))
+				ss.NewLogMsg(
+					"new user added from Firebase, access expires after %d mins",
+					int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
+					AddUser(user.ID).
+					AddVal("firebaseSignInProvider", token.Firebase.SignInProvider))
 		}
 	}
 
 	if !isNew {
 		request.Log().Debug(
-			"User %q authed by Firebase through %q, access expires after %d mins.",
-			user.ID,
-			token.Firebase.SignInProvider,
-			int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes()))
+			ss.NewLogMsg(
+				"user authed by Firebase, access expires after %d mins",
+				int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
+				AddUser(user.ID).
+				AddVal("firebaseSignInProvider", token.Firebase.SignInProvider))
 		lambda.updateUser(*firebaseUser, request, user)
 	}
 
@@ -300,7 +302,8 @@ func (lambda lambda) updateUser(
 		Values(values).
 		RequestAndReturn(&record)
 	if err != nil || !isFound {
-		request.Log().Error(`Failed to update user %q: "%v".`, user.ID, err)
+		request.Log().Error(
+			ss.NewLogMsg(`failed to update user`).AddUser(user.ID).AddErr(err))
 		return
 	}
 

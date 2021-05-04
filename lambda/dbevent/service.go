@@ -23,25 +23,30 @@ func (service *service) Start() { awslambda.Start(service.handle) }
 
 func (service *service) handle(event *events.DynamoDBEvent) error {
 	if len(event.Records) == 0 {
-		ss.S.Log().Warn("Empty event list.")
+		ss.S.Log().Warn(ss.NewLogMsg("empty event list").AddRequest(*event))
 		return nil
 	}
 
-	eventID := event.Records[0].EventID
 	log := ss.S.Log().NewSession(
-		eventID[:4] + "-" + eventID[len(eventID)-4:])
-	defer func() { log.CheckExit(recover()) }()
+		ss.NewLogPrefix().AddRequestID(event.Records[0].EventID))
+	defer func() {
+		log.CheckExitWithPanicDetails(
+			recover(),
+			func() *ss.LogMsg {
+				return ss.NewLogMsg("panic at service handling").AddRequest(*event)
+			})
+	}()
 
-	log.Debug("%d records.", len(event.Records))
-	if ss.S.Config().IsExtraLogEnabled() {
-		log.Debug("Records dump: %s", ss.Dump(event.Records))
-	}
+	log.Debug(ss.NewLogMsg("%d records", len(event.Records)))
 
 	request := newRequest(event.Records, log)
 
 	if err := service.Lambda.Execute(request); err != nil {
-		request.Log().Error(`Lambda execution error: "%v". Events dump: %s`,
-			err, ss.Dump(event.Records))
+		request.Log().Error(
+			ss.
+				NewLogMsg(`lambda execution error`).
+				AddErr(err).
+				AddRequest(*event))
 		return err
 	}
 

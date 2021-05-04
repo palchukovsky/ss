@@ -22,7 +22,7 @@ import (
 
 // Service is the root interface of the service.
 type Service interface {
-	Log() ServiceLog
+	Log() Log
 	Product() string
 	Name() string
 	Config() ServiceConfig
@@ -79,7 +79,7 @@ func NewService(
 		name:    name,
 		product: product,
 		config:  config.SS.Service,
-		log:     newServiceLog(projectPackage, name, *config),
+		log:     NewLog(projectPackage, name, *config),
 		build:   config.SS.Build,
 	}
 }
@@ -88,11 +88,11 @@ type service struct {
 	name    string
 	product string
 	config  ServiceConfig
-	log     ServiceLog
+	log     Log
 	build   Build
 }
 
-func (service service) Log() ServiceLog       { return service.log }
+func (service service) Log() Log              { return service.log }
 func (service service) Config() ServiceConfig { return service.config }
 func (service service) Build() Build          { return service.build }
 func (service service) Name() string          { return service.name }
@@ -108,7 +108,7 @@ func (service service) NewBuildEntityName(name string) string {
 func (service service) NewAWSConfig() aws.Config {
 	result, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		service.Log().Panic(`Failed to load AWS config: "%v".`, err)
+		service.Log().Panic(NewLogMsg(`failed to load AWS config`).AddErr(err))
 	}
 	return result
 }
@@ -118,7 +118,7 @@ func (service service) NewAWSSessionV1() *session.Session {
 		SharedConfigState: session.SharedConfigEnable,
 	})
 	if err != nil {
-		service.Log().Panic(`Failed to load AWS v1 config: "%v".`, err)
+		service.Log().Panic(NewLogMsg(`failed to load AWS v1 config`).AddErr(err))
 	}
 	return result
 }

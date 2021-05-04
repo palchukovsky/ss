@@ -35,6 +35,6 @@ func (lambda lambda) Execute(request ws.Request) error {
 	if err != nil {
 		return fmt.Errorf(`failed to add connection: "%w"`, err)
 	}
-	request.Log().Debug("Connected.")
+	request.Log().Debug(ss.NewLogMsg("connected"))
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/palchukovsky/ss"
 	"github.com/palchukovsky/ss/ddb"
-	"github.com/palchukovsky/ss/lambda"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,16 +43,16 @@ func (ConnectionUserIndex) GetProjection() []string { return []string{} }
 
 type connectionKey struct {
 	connectionRecord
-	id lambda.ConnectionID
+	id ss.ConnectionID
 }
 
-func NewConnectionKey(id lambda.ConnectionID) connectionKey {
+func NewConnectionKey(id ss.ConnectionID) connectionKey {
 	return connectionKey{id: id}
 }
 
 func (key connectionKey) GetKey() interface{} {
 	return struct {
-		ID lambda.ConnectionID `json:"id"`
+		ID ss.ConnectionID `json:"id"`
 	}{ID: key.id}
 }
 
@@ -62,13 +61,13 @@ func (key connectionKey) GetKey() interface{} {
 // Connection describes the record of a table with active connections.
 type Connection struct {
 	connectionRecord
-	ID             lambda.ConnectionID `json:"id"`
-	User           ss.UserID           `json:"user"`
-	ExpirationTime ddb.Time            `json:"expired"`
+	ID             ss.ConnectionID `json:"id"`
+	User           ss.UserID       `json:"user"`
+	ExpirationTime ddb.Time        `json:"expired"`
 }
 
 // NewConnection creates new connection record.
-func NewConnection(id lambda.ConnectionID, user ss.UserID) Connection {
+func NewConnection(id ss.ConnectionID, user ss.UserID) Connection {
 	return Connection{
 		ID:             id,
 		User:           user,

@@ -10,8 +10,8 @@ import (
 
 // Request describes request to lambda which handles DynamoDB event.
 type Request interface {
-	Log() ss.ServiceLogStream
-	StartLogSession(prefix string)
+	Log() ss.LogStream
+	StartLogSession(ss.LogPrefix)
 
 	GetEvents() []events.DynamoDBEventRecord
 }
@@ -19,13 +19,13 @@ type Request interface {
 ////////////////////////////////////////////////////////////////////////////////
 
 type request struct {
-	log    ss.ServiceLogStream
+	log    ss.LogStream
 	events []events.DynamoDBEventRecord
 }
 
 func newRequest(
 	events []events.DynamoDBEventRecord,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) Request {
 	return &request{
 		log:    log,
@@ -33,9 +33,9 @@ func newRequest(
 	}
 }
 
-func (request request) Log() ss.ServiceLogStream { return request.log }
+func (request request) Log() ss.LogStream { return request.log }
 
-func (request *request) StartLogSession(prefix string) {
+func (request *request) StartLogSession(prefix ss.LogPrefix) {
 	request.log = request.log.NewSession(prefix)
 }
 

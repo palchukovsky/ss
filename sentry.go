@@ -4,16 +4,17 @@
 package ss
 
 import (
+	"fmt"
 	"log"
+	"reflect"
 	"time"
 
 	sentryclient "github.com/getsentry/sentry-go"
 )
 
 type sentry interface {
-	CaptureMessage(string)
-	CaptureException(error)
-	Recover(interface{})
+	CaptureMessage(*LogMsg)
+	Recover(interface{}, *LogMsg)
 	Flush()
 }
 
@@ -63,29 +64,51 @@ func newSentry(
 
 type sentryDummy struct{}
 
-func (sentryDummy) CaptureMessage(message string)  {}
-func (sentryDummy) CaptureException(err error)     {}
-func (sentryDummy) Recover(panicValue interface{}) {}
-func (sentryDummy) Flush()                         {}
+func (sentryDummy) CaptureMessage(*LogMsg)       {}
+func (sentryDummy) Recover(interface{}, *LogMsg) {}
+func (sentryDummy) Flush()                       {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type sentryConnect struct{}
 
-func (sentryConnect) CaptureMessage(message string) {
-	if sentryclient.CaptureMessage(message) == nil {
+func (s sentryConnect) CaptureMessage(message *LogMsg) {
+	event := s.newEvent(message, false)
+	event.Message = message.GetMessage()
+	if sentryclient.CaptureEvent(event) == nil {
 		log.Println("Failed to capture message by Sentry.")
 	}
 }
 
-func (sentryConnect) CaptureException(err error) {
-	if sentryclient.CaptureException(err) == nil {
-		log.Println(`Failed to capture exception by Sentry.`)
-	}
-}
+func (s sentryConnect) Recover(panicValue interface{}, message *LogMsg) {
 
-func (sentryConnect) Recover(panicValue interface{}) {
-	if sentryclient.CurrentHub().Recover(panicValue) == nil {
+	event := s.newEvent(message, true)
+
+	switch err := panicValue.(type) {
+	case error:
+		const maxErrorDepthFromDentryclient = 10
+		for i := 0; i < maxErrorDepthFromDentryclient && err != nil; i++ {
+			event.Exception = append(event.Exception, sentryclient.Exception{
+				Value:      err.Error(),
+				Type:       reflect.TypeOf(err).String(),
+				Stacktrace: sentryclient.ExtractStacktrace(err),
+			})
+			switch previous := err.(type) {
+			case interface{ Unwrap() error }:
+				err = previous.Unwrap()
+			case interface{ Cause() error }:
+				err = previous.Cause()
+			default:
+				err = nil
+			}
+		}
+	case string:
+		event.Message = fmt.Sprintf("%s: %s", message.GetMessage(), err)
+	default:
+		event.Message = fmt.Sprintf("%s: %#v", message.GetMessage(), err)
+	}
+
+	if sentryclient.CaptureEvent(event) == nil {
 		log.Println(`Failed to recover panic by Sentry.`)
 	}
 }
@@ -94,6 +117,40 @@ func (sentryConnect) Flush() {
 	if !sentryclient.Flush(2750 * time.Millisecond) {
 		log.Println("Not all Sentry records were flushed, timeout was reached.")
 	}
+}
+
+func (sentryConnect) newEvent(
+	source *LogMsg,
+	isCrash bool,
+) *sentryclient.Event {
+	result := sentryclient.NewEvent()
+
+	switch source.GetLevel() {
+	case logLevelDebug:
+		result.Level = sentryclient.LevelDebug
+	case logLevelInfo:
+		result.Level = sentryclient.LevelInfo
+	case logLevelWarn:
+		result.Level = sentryclient.LevelWarning
+	case logLevelError:
+		result.Level = sentryclient.LevelError
+	default: // logLevelPanic also here
+		result.Level = sentryclient.LevelFatal
+	}
+
+	result.Threads = []sentryclient.Thread{{
+		Stacktrace: sentryclient.NewStacktrace(),
+		Crashed:    isCrash,
+		Current:    true,
+	}}
+
+	result.Extra = source.MarshalAttributesMap()
+	if user, has := result.Extra[logMsgNodeUser]; has {
+		result.User.ID = user.(UserID).String()
+		delete(result.Extra, logMsgNodeUser)
+	}
+
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////

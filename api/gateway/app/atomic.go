@@ -6,6 +6,7 @@ package apiapp
 import (
 	"fmt"
 
+	"github.com/palchukovsky/ss"
 	ws "github.com/palchukovsky/ss/lambda/gateway/ws"
 )
 
@@ -16,7 +17,8 @@ func RunAtomic(operation func() (bool, error), request ws.Request) error {
 		if isCompleted, err := operation(); err != nil || isCompleted {
 			return err
 		}
-		request.Log().Debug("Repeating atomic operation %d time...", count+2)
+		request.Log().Debug(
+			ss.NewLogMsg("repeating atomic operation %d time...", count+2))
 	}
 	return fmt.Errorf(`failed to execute atomic operation %d times`, count+1)
 }

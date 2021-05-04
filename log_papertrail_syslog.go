@@ -53,50 +53,50 @@ type papertrail struct {
 
 type papertrailMessage struct {
 	Write   func(writer *syslog.Writer, message string) error
-	Message string
-	Type    string
+	Message *LogMsg
 }
 
 func (papertrail) GetName() string { return "Papertrail" }
 
-func (p papertrail) WriteDebug(message string) error {
+func (p papertrail) WriteDebug(message *LogMsg) error {
 	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Debug(m) },
 		Message: message,
-		Type:    "Debug",
 	}
 	return nil
 }
 
-func (p papertrail) WriteInfo(message string) error {
+func (p papertrail) WriteInfo(message *LogMsg) error {
 	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Info(m) },
 		Message: message,
-		Type:    "Info",
 	}
 	return nil
 }
 
-func (p papertrail) WriteWarn(message string) error {
+func (p papertrail) WriteWarn(message *LogMsg) error {
 	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Warning(m) },
 		Message: message,
-		Type:    "Warn",
 	}
 	return nil
 }
 
-func (p papertrail) WriteError(message string) error {
+func (p papertrail) WriteError(message *LogMsg) error {
 	p.messageChan <- papertrailMessage{
 		Write:   func(w *syslog.Writer, m string) error { return w.Err(m) },
 		Message: message,
-		Type:    "Error",
 	}
 	return nil
 }
 
-func (p papertrail) WritePanic(message string) error {
-	return p.writer.Emerg(message)
+func (p papertrail) WritePanic(message *LogMsg) error {
+	return p.writer.Emerg(
+		fmt.Sprintf(
+			"%s: %s %s",
+			message.GetLevel(),
+			message.GetMessage(),
+			message.ConvertAttributesToJSON()))
 }
 
 func (p papertrail) runWriter() {
@@ -116,14 +116,16 @@ func (p papertrail) runWriter() {
 
 		err := message.Write(
 			p.writer,
-			message.Message+" "+strconv.Itoa(sequenceNumber))
+			message.Message.GetMessage()+
+				" "+string(message.Message.ConvertAttributesToJSON())+
+				" "+strconv.Itoa(sequenceNumber))
 		if err != nil {
 			log.Printf(
 				`Error: Failed to write log %q record: %v`,
 				p.GetName(),
 				err)
-			p.sentry.CaptureException(
-				fmt.Errorf(`Failed to write log %q record: %w`, p.GetName(), err))
+			p.sentry.CaptureMessage(
+				NewLogMsg(`failed to write log %q`, p.GetName()).AddErr(err))
 		}
 	}
 }

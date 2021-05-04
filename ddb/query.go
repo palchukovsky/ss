@@ -161,9 +161,7 @@ func (query query) update(update update) (uint, uint, error) {
 		}
 		isFound, err := update.Request()
 		if err != nil {
-			return querySize,
-				updatedCount,
-				fmt.Errorf(`"%w", update dump: %s`, err, ss.Dump(update))
+			return querySize, updatedCount, err
 		}
 		if isFound {
 			updatedCount++
@@ -206,13 +204,11 @@ func (query query) TransAndCheckError(
 				return querySize,
 					updatedCount,
 					fmt.Errorf(
-						"failed to execute trans for queried record %d (%d) on attempt %d: %w, request dump: %s, query dump: %s",
+						`failed to execute trans for queried record %d (%d) on attempt %d: "%w"`,
 						updatedCount,
 						querySize,
 						attempt,
-						err,
-						ss.Dump(trans),
-						ss.Dump(query))
+						err)
 			}
 			if !repeat {
 				break
@@ -221,13 +217,11 @@ func (query query) TransAndCheckError(
 				return querySize,
 					updatedCount,
 					fmt.Errorf(
-						"failed to execute atomic trans for queried record %d (%d) %d times %w, request dump: %s, query dump: %s",
+						`failed to execute atomic trans for queried record %d (%d) %d times "%w"`,
 						updatedCount,
 						querySize,
 						attempt,
-						err,
-						ss.Dump(trans),
-						ss.Dump(query))
+						err)
 			}
 			attempt++
 		}

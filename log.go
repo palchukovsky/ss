@@ -4,69 +4,73 @@
 package ss
 
 import (
-	"bufio"
-	"fmt"
 	"log"
-	"regexp"
-	"runtime"
-	"strings"
 	"sync"
 	"time"
 )
 
-// ServiceLog describes product log interface.
-type ServiceLogStream interface {
+// Log describes product log interface.
+type LogStream interface {
 	// NewLogSession creates the log session which allows setting records
 	// prefix for each session message.
-	NewSession(prefix string) ServiceLogStream
+	NewSession(LogPrefix) LogStream
 
 	CheckExit(panicValue interface{})
 	CheckExitWithPanicDetails(
 		panicValue interface{},
-		getPanicDetails func() string)
+		getPanicDetails func() *LogMsg)
 
 	checkPanic(panicValue interface{})
-	checkPanicWithDetails(panicValue interface{}, getPanicDetails func() string)
+	checkPanicWithDetails(
+		panicValue interface{},
+		getPanicDetails func() *LogMsg)
 
-	Debug(format string, args ...interface{})
-
-	Info(format string, args ...interface{})
-
-	Warn(format string, args ...interface{})
-
-	Error(format string, args ...interface{})
-	Err(err error)
-
-	Panic(format string, args ...interface{})
+	Debug(*LogMsg)
+	Info(*LogMsg)
+	Warn(*LogMsg)
+	Error(*LogMsg)
+	Panic(*LogMsg)
 }
 
-type ServiceLog interface {
-	ServiceLogStream
+type Log interface {
+	LogStream
 
 	Started()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type logLevel string
+
+const (
+	logLevelDebug logLevel = "debug"
+	logLevelInfo  logLevel = "info"
+	logLevelWarn  logLevel = "warn"
+	logLevelError logLevel = "error"
+	logLevelPanic logLevel = "panic"
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
 type logDestination interface {
 	GetName() string
 
-	WriteDebug(message string) error
-	WriteInfo(message string) error
-	WriteWarn(message string) error
-	WriteError(message string) error
-	WritePanic(message string) error
+	WriteDebug(*LogMsg) error
+	WriteInfo(*LogMsg) error
+	WriteWarn(*LogMsg) error
+	WriteError(*LogMsg) error
+	WritePanic(*LogMsg) error
 
 	Sync() error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newServiceLog(
+func NewLog(
 	projectPackage string,
 	module string,
 	config Config,
-) ServiceLog {
+) Log {
 
 	result := serviceLog{
 		destinations: []logDestination{},
@@ -132,36 +136,22 @@ type serviceLog struct {
 }
 
 func (l serviceLog) Started() {
-	build := S.Build()
-
-	var destinations string
-	l.forEachDestination(func(d logDestination) error {
-		if destinations != "" {
-			destinations += ", "
-		}
-		destinations += d.GetName()
-		return nil
-	})
-
-	l.Debug(
-		"Started %q ver %q on %q with %q",
-		build.ID,
-		build.Version,
-		S.Config().AWS.Region,
-		destinations)
+	l.Debug(NewLogMsg("started"))
 }
 
-func (l *serviceLog) NewSession(prefix string) ServiceLogStream {
+func (l *serviceLog) NewSession(prefix LogPrefix) LogStream {
 	return newLogSession(l, prefix)
 }
 
 func (l *serviceLog) CheckExit(panicValue interface{}) {
-	l.CheckExitWithPanicDetails(panicValue, nil)
+	l.CheckExitWithPanicDetails(
+		panicValue,
+		func() *LogMsg { return NewLogMsg("panic detected at exit") })
 }
 
 func (l *serviceLog) CheckExitWithPanicDetails(
 	panicValue interface{},
-	getPanicDetails func() string,
+	getPanicDetails func() *LogMsg,
 ) {
 	defer l.sentry.Flush()
 	defer l.sync()
@@ -169,126 +159,78 @@ func (l *serviceLog) CheckExitWithPanicDetails(
 }
 
 func (l *serviceLog) checkPanic(panicValue interface{}) {
-	l.checkPanicWithDetails(panicValue, nil)
+	l.checkPanicWithDetails(
+		panicValue,
+		func() *LogMsg { return NewLogMsg("panic detected") })
 }
 
 func (l *serviceLog) checkPanicWithDetails(
 	panicValue interface{},
-	getPanicDetails func() string,
+	getPanicDetails func() *LogMsg,
 ) {
 	if panicValue == nil {
 		return
 	}
-
 	if l.isPanic {
 		// Rethrow.
 		panic(panicValue)
 	}
-
-	message := fmt.Sprintf(`Panic detected: %v`, panicValue)
-	if getPanicDetails != nil {
-		message += fmt.Sprintf(`. Details: %s`, getPanicDetails())
-	}
-
-	l.panic(panicValue, message)
+	l.panic(panicValue, getPanicDetails())
 }
 
-func (l serviceLog) Debug(format string, args ...interface{}) {
-	message := fmt.Sprintf(format, args...)
-	log.Println("Debug: " + message)
-	l.forEachDestination(func(d logDestination) error {
-		return d.WriteDebug(message)
-	})
+func (l serviceLog) Debug(m *LogMsg) {
+	m.SetLevel(logLevelDebug)
+	l.print(m)
+	l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
 }
 
-func (l serviceLog) Info(format string, args ...interface{}) {
-	message := fmt.Sprintf(format, args...)
-	log.Println("Info: " + message)
-	l.forEachDestination(func(d logDestination) error {
-		return d.WriteInfo(message)
-	})
+func (l serviceLog) Info(m *LogMsg) {
+	m.SetLevel(logLevelInfo)
+	l.print(m)
+	l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
 }
 
-func (l serviceLog) Warn(format string, args ...interface{}) {
-	message := fmt.Sprintf(format, args...)
-
-	log.Println("Warn: " + message)
-
-	l.sentry.CaptureMessage(l.removePrefix(message))
-
-	l.forEachDestination(func(d logDestination) error {
-		return d.WriteWarn(message)
-	})
+func (l serviceLog) Warn(m *LogMsg) {
+	m.SetLevel(logLevelWarn)
+	l.print(m)
+	l.sentry.CaptureMessage(m)
+	l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
 }
 
-func (l serviceLog) Error(format string, args ...interface{}) {
-	message := fmt.Sprintf(format, args...)
-
-	log.Println("Error: " + message)
-
-	l.sentry.CaptureMessage(l.removePrefix(message))
-
-	l.forEachDestination(func(d logDestination) error {
-		return d.WriteError(message)
-	})
+func (l serviceLog) Error(m *LogMsg) {
+	m.SetLevel(logLevelError)
+	m.AddCurrentStack()
+	l.print(m)
+	l.sentry.CaptureMessage(m)
+	l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
 }
 
-func (l serviceLog) Err(err error) {
-	message := capitalizeString(fmt.Sprintf("%v", err))
-
-	log.Println("Error: " + message)
-
-	l.sentry.CaptureException(err)
-
-	l.forEachDestination(func(d logDestination) error {
-		return d.WriteError(message)
-	})
+func (l serviceLog) Panic(m *LogMsg) {
+	m.SetLevel(logLevelPanic)
+	l.panic(m.GetMessage(), m)
 }
 
-func (l serviceLog) Panic(format string, args ...interface{}) {
-	message := fmt.Sprintf(format, args...)
-	l.panic(message, message)
-}
-
-func (l *serviceLog) panic(panicValue interface{}, message string) {
+func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
 	defer l.sentry.Flush()
 	defer l.sync()
 
-	l.sentry.Recover(panicValue)
+	message.AddCurrentStack()
 
-	l.writePanic(message)
-
-	l.isPanic = true
-	log.Panicln(message)
-
-}
-
-func (l *serviceLog) writePanic(message string) {
-	message = "Panic! " + message + ". Stack: ["
-
-	{
-		buffer := make([]byte, 4096)
-		size := runtime.Stack(buffer, false)
-		isStared := false
-		scanner := bufio.NewScanner(strings.NewReader(string(buffer[:size])))
-		for scanner.Scan() {
-			if isStared {
-				message += ","
-			} else {
-				isStared = true
-			}
-			if scanner.Text()[:1] == "\t" {
-				message += fmt.Sprintf("%q", "    "+scanner.Text()[1:])
-			} else {
-				message += fmt.Sprintf("%q", scanner.Text())
-			}
-		}
-		message += "]"
-	}
-
+	l.sentry.Recover(panicValue, message)
 	l.forEachDestination(func(d logDestination) error {
 		return d.WritePanic(message)
 	})
+
+	l.isPanic = true
+	log.Panicln(message)
+}
+
+func (l serviceLog) print(message *LogMsg) {
+	log.Printf(
+		"%s: %s %s",
+		message.GetLevel(),
+		message.GetMessage(),
+		message.ConvertAttributesToJSON())
 }
 
 func (l serviceLog) sync() {
@@ -300,7 +242,7 @@ func (l serviceLog) sync() {
 			err := d.Sync()
 			wait.Done()
 			if err != nil {
-				l.Error("Failed to sync log  %q: %v", d.GetName(), err)
+				l.Error(NewLogMsg("failed to sync log  %q", d.GetName()).AddErr(err))
 			}
 		}()
 		return nil
@@ -319,7 +261,7 @@ func (l serviceLog) sync() {
 	case <-doneSignalChan:
 		break
 	case <-timeoutChan:
-		l.Error("Log sync timeout.")
+		l.Error(NewLogMsg("log sync timeout"))
 	}
 }
 
@@ -334,74 +276,64 @@ func (l serviceLog) forEachDestination(callback func(logDestination) error) {
 	}
 }
 
-func (serviceLog) removePrefix(source string) string {
-	return string(
-		regexp.MustCompile(
-			`(?m)^(\[[^\]]*\]\s*)*(.+)$`).
-			ReplaceAll(
-				[]byte(source),
-				[]byte("$2")))
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type serviceLogSession struct {
-	log    ServiceLogStream
-	prefix string
+	log    LogStream
+	prefix LogPrefix
 }
 
-func newLogSession(log ServiceLogStream, prefix string) ServiceLogStream {
-	return &serviceLogSession{log: log, prefix: "[" + prefix + "] "}
+func newLogSession(
+	log LogStream,
+	prefix LogPrefix,
+) LogStream {
+	return &serviceLogSession{log: log, prefix: prefix}
 }
 
-func (log *serviceLogSession) NewSession(prefix string) ServiceLogStream {
-	return newLogSession(log, prefix)
+func (s *serviceLogSession) NewSession(prefix LogPrefix) LogStream {
+	return newLogSession(s, prefix)
 }
 
-func (log *serviceLogSession) CheckExit(panicValue interface{}) {
-	log.checkPanic(panicValue)
+func (s serviceLogSession) CheckExit(panicValue interface{}) {
+	s.checkPanic(panicValue)
 }
 
-func (log *serviceLogSession) CheckExitWithPanicDetails(
+func (s serviceLogSession) CheckExitWithPanicDetails(
 	panicValue interface{},
-	getPanicDetails func() string,
+	getPanicDetails func() *LogMsg,
 ) {
-	log.checkPanicWithDetails(panicValue, getPanicDetails)
+	s.checkPanicWithDetails(
+		panicValue,
+		func() *LogMsg { return getPanicDetails().AddPrefix(s.prefix) })
 }
 
-func (log *serviceLogSession) checkPanic(panicValue interface{}) {
-	log.log.checkPanic(panicValue)
+func (s serviceLogSession) checkPanic(panicValue interface{}) {
+	s.log.checkPanic(panicValue)
 }
 
-func (log *serviceLogSession) checkPanicWithDetails(
+func (s serviceLogSession) checkPanicWithDetails(
 	panicValue interface{},
-	getPanicDetails func() string,
+	getPanicDetails func() *LogMsg,
 ) {
-	log.log.checkPanicWithDetails(panicValue, getPanicDetails)
+	s.log.checkPanicWithDetails(
+		panicValue,
+		func() *LogMsg { return getPanicDetails().AddPrefix(s.prefix) })
 }
 
-func (log serviceLogSession) Debug(format string, args ...interface{}) {
-	log.log.Debug(log.prefix+format, args...)
+func (s serviceLogSession) Debug(m *LogMsg) {
+	s.log.Debug(m.AddPrefix(s.prefix))
 }
-
-func (log serviceLogSession) Info(format string, args ...interface{}) {
-	log.log.Info(log.prefix+format, args...)
+func (s serviceLogSession) Info(m *LogMsg) {
+	s.log.Info(m.AddPrefix(s.prefix))
 }
-
-func (log serviceLogSession) Warn(format string, args ...interface{}) {
-	log.log.Warn(log.prefix+format, args...)
+func (s serviceLogSession) Warn(m *LogMsg) {
+	s.log.Warn(m.AddPrefix(s.prefix))
 }
-
-func (log serviceLogSession) Error(format string, args ...interface{}) {
-	log.log.Error(log.prefix+format, args...)
+func (s serviceLogSession) Error(m *LogMsg) {
+	s.log.Error(m.AddPrefix(s.prefix))
 }
-
-func (log serviceLogSession) Err(err error) {
-	log.Error(capitalizeString(fmt.Sprintf("%v", err)))
-}
-
-func (log *serviceLogSession) Panic(format string, args ...interface{}) {
-	log.log.Panic(log.prefix+format, args...)
+func (s serviceLogSession) Panic(m *LogMsg) {
+	s.log.Panic(m.AddPrefix(s.prefix))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

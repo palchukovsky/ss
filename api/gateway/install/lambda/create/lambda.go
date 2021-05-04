@@ -27,7 +27,7 @@ func Run(installer api.Installer) {
 		func(gateway install.Gateway) error { return gateway.Create(client) },
 		log)
 	if err != nil {
-		log.Panic(`Failed to create gateway: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to create gateway`).AddErr(err))
 	}
 
 }

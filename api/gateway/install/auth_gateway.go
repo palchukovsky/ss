@@ -8,7 +8,7 @@ import (
 	gatewayinstall "github.com/palchukovsky/ss/gateway/install"
 )
 
-func newAuthGateway(log ss.ServiceLog) gatewayinstall.Gateway {
+func newAuthGateway(log ss.Log) gatewayinstall.Gateway {
 	return gatewayinstall.NewGateway(
 		ss.S.Config().AWS.Gateway.Auth.ID,
 		"auth",

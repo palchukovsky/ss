@@ -98,9 +98,11 @@ func (client client) newPut(record DataRecord) (dynamodb.PutItemInput, error) {
 	var err error
 	result.Item, err = dynamodbattribute.MarshalMap(record.GetData())
 	if err != nil {
-		return result, fmt.Errorf(
-			`failed to serialize item to put into table %q: "%w", data: %s`,
-			record.GetTable(), err, ss.Dump(record))
+		return result,
+			fmt.Errorf(
+				`failed to serialize item to put into table %q: "%w"`,
+				record.GetTable(),
+				err)
 	}
 	return result, nil
 }
@@ -108,8 +110,10 @@ func (client client) newPut(record DataRecord) (dynamodb.PutItemInput, error) {
 func (client client) put(input dynamodb.PutItemInput) error {
 	request, _ := client.db.PutItemRequest(&input)
 	if err := request.Send(); err != nil {
-		return fmt.Errorf(`failed to put item into table %q: "%w", input: %s`,
-			*input.TableName, err, ss.Dump(input))
+		return fmt.Errorf(
+			`failed to put item into table %q: "%w"`,
+			*input.TableName,
+			err)
 	}
 	return nil
 }
@@ -121,8 +125,7 @@ func (client client) Write(trans WriteTrans) error {
 	}
 	request, _ := client.db.TransactWriteItemsRequest(&input)
 	if err := request.Send(); err != nil {
-		return fmt.Errorf(`failed to write trans: "%w", input dump: %s`,
-			err, ss.Dump(input))
+		return fmt.Errorf(`failed to write trans: "%w"`, err)
 	}
 	return nil
 }

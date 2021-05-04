@@ -15,9 +15,9 @@ func ForEachTable(
 	installer Installer,
 	db ddbinstall.DB,
 	callback func(ddbinstall.Table) error,
-	log ss.ServiceLog,
+	log ss.Log,
 ) error {
-	log.Debug("Processing each table...")
+	log.Debug(ss.NewLogMsg("processing each table..."))
 
 	tables := append(
 		installer.NewTables(db, log),
@@ -25,13 +25,13 @@ func ForEachTable(
 		newUserTable(db, log))
 
 	for _, table := range tables {
-		table.Log().Debug("Processing...")
+		table.Log().Debug(ss.NewLogMsg("processing..."))
 		if err := callback(table); err != nil {
 			return fmt.Errorf(`failed to process %q: "%w"`, table.GetName(), err)
 		}
-		table.Log().Info("Processed.")
+		table.Log().Info(ss.NewLogMsg("processed"))
 	}
 
-	log.Debug("Processing each table successfully completed.")
+	log.Debug(ss.NewLogMsg("processing each table successfully completed"))
 	return nil
 }

@@ -67,12 +67,9 @@ func (build Build) IsProd() bool { return build.Version != "dev" }
 ////////////////////////////////////////////////////////////////////////////////
 
 type logConfig struct {
-	Sentry string `json:"sentry,omitempty"`
-	Loggly string `json:"loggly,omitempty"`
-	Logzio *struct {
-		Token string `json:"token"`
-		URL   string `json:"url"`
-	} `json:"logzio,omitempty"`
+	Sentry     string `json:"sentry,omitempty"`
+	Loggly     string `json:"loggly,omitempty"`
+	Logzio     string `json:"logzio,omitempty"`
 	Papertrail string `json:"papertrail,omitempty"`
 }
 
@@ -110,7 +107,7 @@ type FirebaseConfig struct {
 
 func (config FirebaseConfig) GetJSON() []byte {
 	if config.value == nil {
-		S.Log().Panic(`Firebase config is not set.`)
+		S.Log().Panic(NewLogMsg(`Firebase config is not set`))
 	}
 	return config.value
 }
@@ -137,7 +134,7 @@ type RSAPrivateKey struct {
 
 func (key RSAPrivateKey) Get() *rsa.PrivateKey {
 	if key.value == nil {
-		S.Log().Panic(`RSA key is not set.`)
+		S.Log().Panic(NewLogMsg(`RSA key is not set`))
 	}
 	return key.value
 }

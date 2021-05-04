@@ -88,9 +88,11 @@ func (update update) RequestAndReturn(result RecordBuffer) (bool, error) {
 	}
 	err = dynamodbattribute.UnmarshalMap(output.Attributes, result)
 	if err != nil {
-		return false, fmt.Errorf(
-			`failed to read update response from table %q: "%w", dump: %s`,
-			update.getTable(), err, ss.Dump(output.Attributes))
+		return false,
+			fmt.Errorf(
+				`failed to read update response from table %q: "%w"`,
+				update.getTable(),
+				err)
 	}
 	return true, nil
 }
@@ -105,8 +107,11 @@ func (update update) request() (*dynamodb.UpdateItemOutput, error) {
 			// no error, but not found
 			return nil, nil
 		}
-		return nil, fmt.Errorf(`failed to update item in table %q: "%w", input: %s`,
-			update.getTable(), err, ss.Dump(update.input))
+		return nil,
+			fmt.Errorf(
+				`failed to update item in table %q: "%w"`,
+				update.getTable(),
+				err)
 	}
 	return result, nil
 }
@@ -115,8 +120,9 @@ func (update *update) SetKey(source interface{}) error {
 	key, err := dynamodbattribute.MarshalMap(source)
 	if err != nil {
 		return fmt.Errorf(
-			`failed to serialize key to update table %q: "%w", key: %s`,
-			update.getTable(), err, ss.Dump(source))
+			`failed to serialize key to update table %q: "%w"`,
+			update.getTable(),
+			err)
 	}
 	update.input.Key = key
 	return nil

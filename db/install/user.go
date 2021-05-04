@@ -13,7 +13,7 @@ import (
 
 type user struct{ ddbinstall.TableAbstraction }
 
-func newUserTable(ddb ddbinstall.DB, log ss.ServiceLog) ddbinstall.Table {
+func newUserTable(ddb ddbinstall.DB, log ss.Log) ddbinstall.Table {
 	return user{
 		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.User{}, log),
 	}

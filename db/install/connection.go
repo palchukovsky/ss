@@ -12,7 +12,7 @@ import (
 
 type connection struct{ ddbinstall.TableAbstraction }
 
-func newConnectionTable(ddb ddbinstall.DB, log ss.ServiceLog) ddbinstall.Table {
+func newConnectionTable(ddb ddbinstall.DB, log ss.Log) ddbinstall.Table {
 	return connection{
 		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.Connection{}, log),
 	}

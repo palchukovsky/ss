@@ -5,14 +5,16 @@ package dbeventlambda
 
 import (
 	"fmt"
-
-	"github.com/palchukovsky/ss"
 )
 
-func NewDBEventError(sourceErr error, eventIndex int, request Request) error {
-	return fmt.Errorf(`failed to handle event %d of %d: "%w", event: %s`,
+func NewDBEventError(
+	sourceErr error,
+	eventIndex int,
+	request Request,
+) error {
+	return fmt.Errorf(
+		`failed to handle event %d of %d: "%w"`,
 		eventIndex+1,
 		len(request.GetEvents()),
-		sourceErr,
-		ss.Dump(request.GetEvents()[eventIndex]))
+		sourceErr)
 }

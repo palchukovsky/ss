@@ -36,22 +36,22 @@ func Run(installer dbinstall.Installer) {
 				if awsErr.Code() != dynamodb.ErrCodeResourceNotFoundException {
 					return err
 				}
-				table.Log().Info("Table doesn't exist: %q.", err)
+				table.Log().Info(ss.NewLogMsg("table doesn't exist").AddErr(err))
 			}
 			return nil
 		},
 		log)
 	if err != nil {
-		log.Panic(`Failed to delete database: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to delete database`).AddErr(err))
 	}
 
-	log.Info("Waition for deletion...")
+	log.Info(ss.NewLogMsg("waiting for deletion..."))
 	err = dbinstall.ForEachTable(
 		installer,
 		db,
 		func(table ddbinstall.Table) error { return table.WaitUntilNotExists() },
 		log)
 	if err != nil {
-		log.Panic(`Failed to wait table deletion: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to wait table deletion`).AddErr(err))
 	}
 }

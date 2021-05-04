@@ -66,8 +66,11 @@ func getFieldName(field reflect.StructField) (string, bool) {
 func getFiledType(record ddb.DataRecord, fieldName string) string {
 	result := getTypeType(reflect.ValueOf(record.GetData()).Type(), fieldName)
 	if result == "" {
-		ss.S.Log().Panic("Failed to find filed type for field %q in table %q.",
-			record.GetTable(), fieldName)
+		ss.S.Log().Panic(
+			ss.NewLogMsg(
+				"failed to find filed type for field %q in table %q",
+				record.GetTable(),
+				fieldName))
 	}
 	return result
 }
@@ -133,8 +136,11 @@ func getTypeByType(source reflect.Type) string {
 		return result
 	}
 
-	ss.S.Log().Panic("Failed to find DB filed type for type %q/%q.",
-		source.PkgPath(), source.Name())
+	ss.S.Log().Panic(
+		ss.NewLogMsg(
+			"failed to find DB filed type for type %q/%q",
+			source.PkgPath(),
+			source.Name()))
 	return ""
 }
 

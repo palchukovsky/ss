@@ -5,7 +5,6 @@ package wsgatewaylambda
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -39,52 +38,79 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 	if err != nil {
 		return awsResponse{}, err
 	}
-	defer func() { lambdaRequest.Log().CheckExit(recover()) }()
+	defer func() {
+		lambdaRequest.Log().CheckExitWithPanicDetails(
+			recover(),
+			func() *ss.LogMsg {
+				return ss.
+					NewLogMsg("request handling panic").
+					AddRequest(lambdaRequest.AWSRequest)
+			})
+	}()
 
 	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug(
-			"Lambda request dump: %s.",
-			ss.Dump(lambdaRequest.AWSRequest))
+			ss.NewLogMsg("lambda request").AddRequest(lambdaRequest.AWSRequest))
 	}
 
-	var responseBody string
+	var response interface{}
 	if err := service.lambda.Execute(&lambdaRequest); err != nil {
-		lambdaRequest.Log().Error(`Lambda execution error: "%v". Request dump: %s.`,
-			err, ss.Dump(lambdaRequest.AWSRequest))
-		responseBody = newErrorResponseBody(lambdaRequest)
+		lambdaRequest.Log().Error(
+			ss.
+				NewLogMsg(`lambda execution error`).
+				AddErr(err).
+				AddRequest(lambdaRequest.AWSRequest))
+		response = newErrorResponseBody(lambdaRequest)
 	} else {
-		responseBody = newSuccessResponseBody(lambdaRequest)
+		response = newSuccessResponseBody(lambdaRequest)
 	}
 
 	if ss.S.Config().IsExtraLogEnabled() {
-		lambdaRequest.Log().Debug("Response dump: %s.", responseBody)
+		lambdaRequest.Log().Debug(
+			ss.NewLogMsg("lambda response").AddResponse(response))
 	}
-	return awsResponse{StatusCode: http.StatusOK, Body: responseBody}, nil
+
+	result := awsResponse{StatusCode: http.StatusOK}
+	if response != nil {
+		dump, err := json.Marshal(response)
+		if err != nil {
+			ss.S.Log().Panic(
+				ss.
+					NewLogMsg(`failed to marshal response`).
+					AddErr(err).
+					AddRequest(lambdaRequest.AWSRequest).
+					AddResponse(response))
+		}
+		result.Body = string(dump)
+	}
+
+	return result, nil
 }
 
-func newSuccessResponseBody(request request) string {
+func newSuccessResponseBody(request request) interface{} {
 	id := request.ReadRemoteID()
 	if id == nil {
-		return ""
+		return nil
 	}
-	responseDump, err := json.Marshal(struct {
+	return struct {
 		ID   string      `json:"i"`
 		Data interface{} `json:"d"`
 	}{
 		ID:   *id,
 		Data: request.ResponseBody,
-	})
-	if err != nil {
-		ss.S.Log().Panic(`Failed to marshal response: "%w". Dump: %s`,
-			err, ss.Dump(request.ResponseBody))
 	}
-	return string(responseDump)
 }
 
-func newErrorResponseBody(request request) string {
+func newErrorResponseBody(request request) interface{} {
 	id := request.ReadRemoteID()
 	if id == nil {
-		return ""
+		return nil
 	}
-	return fmt.Sprintf(`{"i":%q,"e":"server error"}`, *id)
+	return struct {
+		ID    string `json:"i"`
+		Error string `json:"e"`
+	}{
+		ID:    *id,
+		Error: "server error",
+	}
 }

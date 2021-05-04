@@ -4,34 +4,46 @@
 package ss
 
 import (
-	"fmt"
 	"log"
 
 	logziolib "github.com/logzio/logzio-go"
 )
 
 func newLogzioIfSet(
-	projectPackage,
+	projectPackage string,
 	module string,
 	config Config,
 	sentry sentry,
 ) (logDestination, error) {
 
-	if config.SS.Log.Logzio == nil {
+	if config.SS.Log.Logzio == "" {
 		return nil, nil
 	}
 
 	result := logzio{
-		messageChan: make(chan logzioMessage, 10),
+		messageChan: make(chan *LogMsg, 10),
 		syncChan:    make(chan struct{}),
 		sentry:      sentry,
+		statics: map[string]interface{}{
+			"module":  module,
+			"package": projectPackage,
+			"build": map[string]interface{}{
+				"id":         config.SS.Build.ID,
+				"commit":     config.SS.Build.Commit,
+				"builder":    config.SS.Build.Builder,
+				"maintainer": config.SS.Build.Maintainer,
+			},
+			"aws": map[string]interface{}{
+				"region": config.SS.Service.AWS.Region,
+			},
+		},
 	}
 
 	var err error
 	result.sender, err = logziolib.New(
-		config.SS.Log.Logzio.Token,
-		logziolib.SetUrl(config.SS.Log.Logzio.URL),
-	)
+		config.SS.Log.Logzio,
+		// logziolib.SetDebug(os.Stderr),
+		logziolib.SetTempDirectory("logzio_tmp"))
 	if err != nil {
 		panic(err)
 	}
@@ -42,55 +54,44 @@ func newLogzioIfSet(
 }
 
 type logzio struct {
-	messageChan chan logzioMessage
+	messageChan chan *LogMsg
 	syncChan    chan struct{}
 	sender      *logziolib.LogzioSender
 	sentry      sentry
-}
-
-type logzioMessage struct {
-	Message string
-	Tag     string
+	statics     map[string]interface{}
 }
 
 func (logzio) GetName() string { return "Logz.io" }
 
-func (l logzio) WriteDebug(message string) error {
-	l.write("debug", message)
+func (l logzio) WriteDebug(message *LogMsg) error {
+	l.messageChan <- message
 	return nil
 }
 
-func (l logzio) WriteInfo(message string) error {
-	l.write("info", message)
+func (l logzio) WriteInfo(message *LogMsg) error {
+	l.messageChan <- message
 	return nil
 }
 
-func (l logzio) WriteWarn(message string) error {
-	l.write("warn", message)
+func (l logzio) WriteWarn(message *LogMsg) error {
+	l.messageChan <- message
 	return nil
 }
 
-func (l logzio) WriteError(message string) error {
-	l.write("error", message)
+func (l logzio) WriteError(message *LogMsg) error {
+	l.messageChan <- message
 	return nil
 }
 
-func (l logzio) WritePanic(message string) error {
-	l.write("panic", message)
+func (l logzio) WritePanic(message *LogMsg) error {
+	l.messageChan <- message
 	return nil
 }
 
 func (l logzio) Sync() error {
-	l.messageChan <- logzioMessage{}
+	l.messageChan <- nil
 	<-l.syncChan
 	return nil
-}
-
-func (l logzio) write(tag, message string) {
-	l.messageChan <- logzioMessage{
-		Message: message,
-		Tag:     tag,
-	}
 }
 
 func (l logzio) runWriter() {
@@ -103,34 +104,31 @@ func (l logzio) runWriter() {
 			break
 		}
 
-		if len(message.Tag) == 0 {
+		if message == nil {
 			if err := l.sender.Sync(); err != nil {
-				log.Printf(
-					`Error: Failed to sync log %q record: %v`,
-					l.GetName(),
-					err)
-				l.sentry.CaptureException(
-					fmt.Errorf(`Failed to sync log %q record: %w`, l.GetName(), err))
+				log.Printf(`Error: Failed to sync log %q record: %v`, l.GetName(), err)
+				l.sentry.CaptureMessage(
+					NewLogMsg(`failed to sync log %q record`, l.GetName()).AddErr(err))
 			}
 			l.syncChan <- struct{}{}
 			continue
 		}
 
 		sequenceNumber++
+		message.AddVal("n", sequenceNumber)
 
-		err := l.sender.Send([]byte(
-			fmt.Sprintf(
-				`{%q:%q,"n":%d}`,
-				message.Tag,
-				message,
-				sequenceNumber)))
-		if err != nil {
+		for k, v := range l.statics {
+			message.AddVal(k, v)
+		}
+
+		if err := l.sender.Send(message.ConvertToJSON()); err != nil {
 			log.Printf(
 				`Error: Failed to write log %q record: %v`,
 				l.GetName(),
 				err)
-			l.sentry.CaptureException(
-				fmt.Errorf(`Failed to write log %q record: %w`, l.GetName(), err))
+			l.sentry.CaptureMessage(
+				NewLogMsg(`failed to write log %q record`, l.GetName()).AddErr(err))
 		}
 	}
+	l.sender.Drain()
 }

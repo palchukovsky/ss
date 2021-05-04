@@ -53,18 +53,22 @@ func (find find) Request() (bool, error) {
 	}
 	request, response := find.db.GetItemRequest(&find.input)
 	if err := request.Send(); err != nil {
-		return false, fmt.Errorf(
-			`failed to get item from table %q: "%w", input: %v`,
-			find.record.GetTable(), err, ss.Dump(find.input))
+		return false,
+			fmt.Errorf(
+				`failed to get item from table %q: "%w"`,
+				find.record.GetTable(),
+				err)
 	}
 	if len(response.Item) == 0 {
 		return false, nil
 	}
 	err := dynamodbattribute.UnmarshalMap(response.Item, find.record)
 	if err != nil {
-		return false, fmt.Errorf(
-			`failed to read get-response from table %q: "%w", dump: %s`,
-			find.record.GetTable(), err, ss.Dump(response.Item))
+		return false,
+			fmt.Errorf(
+				`failed to read get-response from table %q: "%w"`,
+				find.record.GetTable(),
+				err)
 	}
 	return true, nil
 }
@@ -83,8 +87,7 @@ func (get get) Request() error {
 		return err
 	}
 	if !isFound {
-		return fmt.Errorf(`unknown record in table %q by input %s`,
-			get.find.record.GetTable(), ss.Dump(get.find.input))
+		return fmt.Errorf(`unknown record in table %q`, get.find.record.GetTable())
 	}
 	return nil
 }

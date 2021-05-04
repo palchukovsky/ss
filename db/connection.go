@@ -6,14 +6,13 @@ package db
 import (
 	"github.com/palchukovsky/ss"
 	"github.com/palchukovsky/ss/ddb"
-	"github.com/palchukovsky/ss/lambda"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type ConnectionIDByUser struct {
 	ConnectionUserIndex
-	ID lambda.ConnectionID `json:"id"`
+	ID ss.ConnectionID `json:"id"`
 }
 
 func (record *ConnectionIDByUser) Clear() { *record = ConnectionIDByUser{} }
@@ -21,7 +20,7 @@ func (record *ConnectionIDByUser) Clear() { *record = ConnectionIDByUser{} }
 // IteratorMover describes intreface to move iterator.
 type FindUserConnectionsIterator interface {
 	Next() bool
-	Get() lambda.ConnectionID
+	Get() ss.ConnectionID
 	Err() error
 }
 
@@ -49,7 +48,7 @@ type findUserConnectionsIterator struct {
 func (it findUserConnectionsIterator) Next() bool {
 	return it.it.Next()
 }
-func (it findUserConnectionsIterator) Get() lambda.ConnectionID {
+func (it findUserConnectionsIterator) Get() ss.ConnectionID {
 	return it.buffer.ID
 }
 func (it findUserConnectionsIterator) Err() error {

@@ -68,7 +68,8 @@ func handle(ctx context.Context, request request) (response, error) {
 	if !hasAccessToken {
 		accessToken, hasAccessToken = request.Headers[authHeaderNameLower]
 		if !hasAccessToken {
-			getLog(request).Error(`No access token. Dump: %s`, ss.Dump(request))
+			getLog(request).Error(
+				ss.NewLogMsg(`no access token`).AddRequest(request))
 			return response{}, errors.New("no access token")
 		}
 	}
@@ -77,25 +78,29 @@ func handle(ctx context.Context, request request) (response, error) {
 	if err != nil {
 		if ss.S.Build().IsProd() {
 			getLog(request).Error(
-				`Failed to parse access token: "%v". Dump: %s`,
-				err,
-				ss.Dump(request))
+				ss.
+					NewLogMsg(`failed to parse access token`).
+					AddErr(err).
+					AddRequest(request))
 		} else {
 			getLog(request).Debug(
-				`Failed to parse access token: "%v". Dump: %s`,
-				err,
-				ss.Dump(request))
+				ss.NewLogMsg(`Failed to parse access token`).
+					AddErr(err).
+					AddRequest(request))
 		}
 		return response{}, errors.New("failed to parse access token")
 	}
 	if userErr != nil {
-		getLog(request).Warn(`Failed to parse access token: "%v". Dump: %s`,
-			userErr, ss.Dump(request))
+		getLog(request).Warn(
+			ss.NewLogMsg(`failed to parse access token`).
+				AddErr(userErr).
+				AddRequest(request))
 		return response{}, errors.New("failed to parse access token")
 	}
 
 	if !expirationTime.After(ss.Now()) {
-		getUserLog(request, user).Debug("Access key expired at %s.", expirationTime)
+		getUserLog(request, user).Debug(
+			ss.NewLogMsg("access key expired at %s", expirationTime))
 		// Special return to generate 401 ("Unauthorized" is case sensitive).
 		return response{}, errors.New("Unauthorized")
 
@@ -112,12 +117,15 @@ func handle(ctx context.Context, request request) (response, error) {
 	return result, nil
 }
 
-func getLog(request request) ss.ServiceLogStream {
+func getLog(request request) ss.LogStream {
 	return ss.S.Log().NewSession(
-		fmt.Sprintf("*.%s", request.RequestContext.RequestID))
+		ss.NewLogPrefix().AddRequestID(request.RequestContext.RequestID))
 }
 
-func getUserLog(request request, user ss.UserID) ss.ServiceLogStream {
-	return ss.S.Log().NewSession(fmt.Sprintf("%s..%s",
-		user, request.RequestContext.RequestID))
+func getUserLog(request request, user ss.UserID) ss.LogStream {
+	return ss.S.Log().NewSession(
+		ss.
+			NewLogPrefix().
+			AddUser(user).
+			AddRequestID(request.RequestContext.RequestID))
 }

@@ -17,8 +17,8 @@ import (
 
 // Gateway describes the interface of an output gateway.
 type Gateway interface {
-	Send(connection ConnectionID, data interface{}) (bool, error)
-	SendSerialized(connection ConnectionID, data []byte) (bool, error)
+	Send(connection ss.ConnectionID, data interface{}) (bool, error)
+	SendSerialized(connection ss.ConnectionID, data []byte) (bool, error)
 	Serialize(interface{}) ([]byte, error)
 }
 
@@ -37,7 +37,8 @@ func NewGateway() Gateway {
 		},
 	)
 	if err != nil {
-		ss.S.Log().Panic(`Failed to create lambda session: "%v".`, err)
+		ss.S.Log().Panic(
+			ss.NewLogMsg(`failed to create lambda session`).AddErr(err))
 	}
 	return gateway{client: apigatewaymanagementapi.New(session)}
 }
@@ -47,7 +48,7 @@ type gateway struct {
 }
 
 func (gateway gateway) Send(
-	connection ConnectionID,
+	connection ss.ConnectionID,
 	data interface{},
 ) (bool, error) {
 	serializeData, err := gateway.Serialize(data)
@@ -58,7 +59,7 @@ func (gateway gateway) Send(
 }
 
 func (gateway gateway) SendSerialized(
-	connection ConnectionID,
+	connection ss.ConnectionID,
 	data []byte,
 ) (bool, error) {
 	request, _ := gateway.

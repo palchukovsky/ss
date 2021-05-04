@@ -13,7 +13,7 @@ import (
 
 type Gateway interface {
 	GetName() string
-	Log() ss.ServiceLogStream
+	Log() ss.LogStream
 
 	Create(Client) error
 }
@@ -23,16 +23,17 @@ func NewGateway(
 	id string,
 	name string,
 	reader GatewayCommadsReader,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) Gateway {
 
-	log = log.NewSession(name)
+	log = log.NewSession(ss.NewLogPrefix().AddVal("gateway", name))
 
 	commands, err := reader.Read(name, log)
 	if err != nil {
-		log.Panic(`Failed to read API commands directory to build gateway %q: "%v"`,
-			name,
-			err)
+		log.Panic(
+			ss.
+				NewLogMsg(`failed to read API commands directory to build gateway`).
+				AddErr(err))
 	}
 
 	return gateway{
@@ -46,22 +47,22 @@ func NewGateway(
 ////////////////////////////////////////////////////////////////////////////////
 
 type GatewayCommadsReader interface {
-	Read(name string, log ss.ServiceLogStream) ([]Command, error)
+	Read(name string, log ss.LogStream) ([]Command, error)
 }
 
 func NewGatewayCommadsReader(
-	newCommand func(name, path string, log ss.ServiceLogStream) (Command, error),
+	newCommand func(name, path string, log ss.LogStream) (Command, error),
 ) GatewayCommadsReader {
 	return gatewayCommadsReader{newCommand: newCommand}
 }
 
 type gatewayCommadsReader struct {
-	newCommand func(name, path string, log ss.ServiceLogStream) (Command, error)
+	newCommand func(name, path string, log ss.LogStream) (Command, error)
 }
 
 func (reader gatewayCommadsReader) Read(
 	name string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) ([]Command, error) {
 	result := []Command{}
 
@@ -76,16 +77,18 @@ func (reader gatewayCommadsReader) Read(
 			if err != nil {
 				return fmt.Errorf(`failed to create commad %q: "%w"`, path, err)
 			}
-			command.Log().Info("Found command by path %q.", path)
+			command.Log().Info(ss.NewLogMsg("found command by path %q", path))
 
 			result = append(result, command)
 			return nil
 		})
 
 	if err != nil {
-		log.Panic(`Failed to read API commands directory to build gateway %q: "%v"`,
-			name,
-			err)
+		log.Panic(
+			ss.NewLogMsg(
+				`failed to read API commands directory to build gateway %q`,
+				name).
+				AddErr(err))
 	}
 
 	return result, nil
@@ -96,12 +99,12 @@ func (reader gatewayCommadsReader) Read(
 type gateway struct {
 	id       string
 	name     string
-	log      ss.ServiceLogStream
+	log      ss.LogStream
 	commands []Command
 }
 
-func (gateway gateway) GetName() string          { return gateway.name }
-func (gateway gateway) Log() ss.ServiceLogStream { return gateway.log }
+func (gateway gateway) GetName() string   { return gateway.name }
+func (gateway gateway) Log() ss.LogStream { return gateway.log }
 
 func (gateway gateway) Create(client Client) error {
 	gatewayClient := client.NewGatewayClient(gateway.id)

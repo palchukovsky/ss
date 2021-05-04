@@ -24,12 +24,13 @@ func newService(
 	projectPackage string,
 	key string,
 	secret string,
-	config ss.ServiceConfig) service {
+	config ss.Config) service {
 
 	return service{
 		key:    key,
-		secret: secret, config: config,
-		log: ss.NewServiceDevLog(projectPackage, "test/gateway/install/create"),
+		secret: secret,
+		config: config.SS.Service,
+		log:    ss.NewLog(projectPackage, "test/gateway/install/create", config),
 		build: ss.Build{
 			Version:    "test",
 			Commit:     "local",

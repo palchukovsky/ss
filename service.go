@@ -79,7 +79,7 @@ func NewService(
 		name:    name,
 		product: product,
 		config:  config.SS.Service,
-		log:     newServiceLog(projectPackage, name, *config),
+		log:     NewLog(projectPackage, name, *config),
 		build:   config.SS.Build,
 	}
 }

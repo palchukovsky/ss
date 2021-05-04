@@ -26,6 +26,14 @@ var (
 func init() {
 	flag.Parse()
 
+	config := ss.Config{}
+	config.SS.Service = ss.ServiceConfig{
+		AWS: ss.AWSConfig{
+			AccountID: *accountID,
+			Region:    *region,
+		},
+	}
+
 	lambda.Init(
 		func(projectPackage string, params ss.ServiceParams) {
 			ss.Set(
@@ -33,12 +41,7 @@ func init() {
 					projectPackage,
 					*accessKeyID,
 					*accessKeySecret,
-					ss.ServiceConfig{
-						AWS: ss.AWSConfig{
-							AccountID: *accountID,
-							Region:    *region,
-						},
-					}))
+					config))
 		})
 }
 

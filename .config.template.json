@@ -32,8 +32,14 @@
       }
     },
     "log": {
-      "papertrail": "",
-      "sentry": ""
+      "sentry": "optional",
+      "loggly": "optional",
+      "logzio": {
+        "_comment": "Logzio setup is optional.",
+        "token": "",
+        "url": ""
+      },
+      "papertrail": "optional"
     }
   }
 }

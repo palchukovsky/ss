@@ -4,7 +4,14 @@
 package ss
 
 import (
+	"bufio"
 	"fmt"
+	"log"
+	"regexp"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
 )
 
 // ServiceLog describes product log interface.
@@ -37,6 +44,303 @@ type ServiceLog interface {
 	ServiceLogStream
 
 	Started()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type logDestination interface {
+	GetName() string
+
+	WriteDebug(message string) error
+	WriteInfo(message string) error
+	WriteWarn(message string) error
+	WriteError(message string) error
+	WritePanic(message string) error
+
+	Sync() error
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func NewLog(
+	projectPackage string,
+	module string,
+	config Config,
+) ServiceLog {
+
+	result := serviceLog{
+		destinations: []logDestination{},
+	}
+
+	{
+		var err error
+		result.sentry, err = newSentry(projectPackage, module, config)
+		if err != nil {
+			log.Panicf("Failed to init Sentry: %v", err)
+		}
+	}
+
+	{
+		loggly, err := newLogglyIfSet(
+			projectPackage,
+			module,
+			config,
+			result.sentry)
+		if err != nil {
+			log.Panicf("Failed to init Loggly: %v", err)
+		}
+		if loggly != nil {
+			result.destinations = append(result.destinations, loggly)
+		}
+	}
+
+	{
+		logzio, err := newLogzioIfSet(
+			projectPackage,
+			module,
+			config,
+			result.sentry)
+		if err != nil {
+			log.Panicf("Failed to init Logz.io: %v", err)
+		}
+		if logzio != nil {
+			result.destinations = append(result.destinations, logzio)
+		}
+	}
+
+	{
+		papertrail, err := newPapertrailIfSet(
+			projectPackage,
+			module,
+			config,
+			result.sentry)
+		if err != nil {
+			log.Panicf("Failed to init Papertail: %v", err)
+		}
+		if papertrail != nil {
+			result.destinations = append(result.destinations, papertrail)
+		}
+	}
+
+	return &result
+}
+
+type serviceLog struct {
+	destinations []logDestination
+	sentry       sentry
+	isPanic      bool
+}
+
+func (l serviceLog) Started() {
+	build := S.Build()
+
+	var destinations string
+	l.forEachDestination(func(d logDestination) error {
+		if destinations != "" {
+			destinations += ", "
+		}
+		destinations += d.GetName()
+		return nil
+	})
+
+	l.Debug(
+		"Started %q ver %q on %q with %q",
+		build.ID,
+		build.Version,
+		S.Config().AWS.Region,
+		destinations)
+}
+
+func (l *serviceLog) NewSession(prefix string) ServiceLogStream {
+	return newLogSession(l, prefix)
+}
+
+func (l *serviceLog) CheckExit(panicValue interface{}) {
+	l.CheckExitWithPanicDetails(panicValue, nil)
+}
+
+func (l *serviceLog) CheckExitWithPanicDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	defer l.sentry.Flush()
+	defer l.sync()
+	l.checkPanicWithDetails(panicValue, getPanicDetails)
+}
+
+func (l *serviceLog) checkPanic(panicValue interface{}) {
+	l.checkPanicWithDetails(panicValue, nil)
+}
+
+func (l *serviceLog) checkPanicWithDetails(
+	panicValue interface{},
+	getPanicDetails func() string,
+) {
+	if panicValue == nil {
+		return
+	}
+
+	if l.isPanic {
+		// Rethrow.
+		panic(panicValue)
+	}
+
+	message := fmt.Sprintf(`Panic detected: %v`, panicValue)
+	if getPanicDetails != nil {
+		message += fmt.Sprintf(`. Details: %s`, getPanicDetails())
+	}
+
+	l.panic(panicValue, message)
+}
+
+func (l serviceLog) Debug(format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+	log.Println("Debug: " + message)
+	l.forEachDestination(func(d logDestination) error {
+		return d.WriteDebug(message)
+	})
+}
+
+func (l serviceLog) Info(format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+	log.Println("Info: " + message)
+	l.forEachDestination(func(d logDestination) error {
+		return d.WriteInfo(message)
+	})
+}
+
+func (l serviceLog) Warn(format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+
+	log.Println("Warn: " + message)
+
+	l.sentry.CaptureMessage(l.removePrefix(message))
+
+	l.forEachDestination(func(d logDestination) error {
+		return d.WriteWarn(message)
+	})
+}
+
+func (l serviceLog) Error(format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+
+	log.Println("Error: " + message)
+
+	l.sentry.CaptureMessage(l.removePrefix(message))
+
+	l.forEachDestination(func(d logDestination) error {
+		return d.WriteError(message)
+	})
+}
+
+func (l serviceLog) Err(err error) {
+	message := capitalizeString(fmt.Sprintf("%v", err))
+
+	log.Println("Error: " + message)
+
+	l.sentry.CaptureException(err)
+
+	l.forEachDestination(func(d logDestination) error {
+		return d.WriteError(message)
+	})
+}
+
+func (l serviceLog) Panic(format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+	l.panic(message, message)
+}
+
+func (l *serviceLog) panic(panicValue interface{}, message string) {
+	defer l.sentry.Flush()
+	defer l.sync()
+
+	l.sentry.Recover(panicValue)
+
+	l.writePanic(message)
+
+	l.isPanic = true
+	log.Panicln(message)
+
+}
+
+func (l *serviceLog) writePanic(message string) {
+	message = "Panic! " + message + ". Stack: ["
+
+	{
+		buffer := make([]byte, 4096)
+		size := runtime.Stack(buffer, false)
+		isStared := false
+		scanner := bufio.NewScanner(strings.NewReader(string(buffer[:size])))
+		for scanner.Scan() {
+			if isStared {
+				message += ","
+			} else {
+				isStared = true
+			}
+			if scanner.Text()[:1] == "\t" {
+				message += fmt.Sprintf("%q", "    "+scanner.Text()[1:])
+			} else {
+				message += fmt.Sprintf("%q", scanner.Text())
+			}
+		}
+		message += "]"
+	}
+
+	l.forEachDestination(func(d logDestination) error {
+		return d.WritePanic(message)
+	})
+}
+
+func (l serviceLog) sync() {
+
+	var wait sync.WaitGroup
+	l.forEachDestination(func(d logDestination) error {
+		wait.Add(1)
+		go func() {
+			err := d.Sync()
+			wait.Done()
+			if err != nil {
+				l.Error("Failed to sync log  %q: %v", d.GetName(), err)
+			}
+		}()
+		return nil
+	})
+
+	doneSignalChan := make(chan struct{})
+	defer close(doneSignalChan)
+	go func() {
+		wait.Wait()
+		doneSignalChan <- struct{}{}
+	}()
+
+	// Common timeout for all logs, as lambda has runtime time limit.
+	timeoutChan := time.After(2750 * time.Millisecond)
+	select {
+	case <-doneSignalChan:
+		break
+	case <-timeoutChan:
+		l.Error("Log sync timeout.")
+	}
+}
+
+func (l serviceLog) forEachDestination(callback func(logDestination) error) {
+	for _, d := range l.destinations {
+		if err := callback(d); err != nil {
+			log.Printf(
+				"Failed to call log destination %q method: %v",
+				d.GetName(),
+				err)
+		}
+	}
+}
+
+func (serviceLog) removePrefix(source string) string {
+	return string(
+		regexp.MustCompile(
+			`(?m)^(\[[^\]]*\]\s*)*(.+)$`).
+			ReplaceAll(
+				[]byte(source),
+				[]byte("$2")))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,21 +397,11 @@ func (log serviceLogSession) Error(format string, args ...interface{}) {
 }
 
 func (log serviceLogSession) Err(err error) {
-	log.Error(convertLogErrToString(err))
+	log.Error(capitalizeString(fmt.Sprintf("%v", err)))
 }
 
 func (log *serviceLogSession) Panic(format string, args ...interface{}) {
 	log.log.Panic(log.prefix+format, args...)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-func convertLogErrToString(err error) string {
-	result := capitalizeString(fmt.Sprintf("%v", err))
-	if len(result) > 0 && result[len(result)-1:] != "." {
-		result += "."
-	}
-	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////

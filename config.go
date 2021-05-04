@@ -71,8 +71,13 @@ func (build Build) IsProd() bool { return build.Version != "dev" }
 ////////////////////////////////////////////////////////////////////////////////
 
 type logConfig struct {
-	Papertrail string `json:"papertrail"`
-	Sentry     string `json:"sentry"`
+	Sentry string `json:"sentry,omitempty"`
+	Loggly string `json:"loggly,omitempty"`
+	Logzio *struct {
+		Token string `json:"token"`
+		URL   string `json:"url"`
+	} `json:"logzio,omitempty"`
+	Papertrail string `json:"papertrail,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////

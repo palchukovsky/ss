@@ -5,60 +5,97 @@
 package mock_ss
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	ss "github.com/palchukovsky/ss"
+	reflect "reflect"
 )
 
-// MockServiceLogStream is a mock of ServiceLogStream interface.
+// MockServiceLogStream is a mock of ServiceLogStream interface
 type MockServiceLogStream struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceLogStreamMockRecorder
 }
 
-// MockServiceLogStreamMockRecorder is the mock recorder for MockServiceLogStream.
+// MockServiceLogStreamMockRecorder is the mock recorder for MockServiceLogStream
 type MockServiceLogStreamMockRecorder struct {
 	mock *MockServiceLogStream
 }
 
-// NewMockServiceLogStream creates a new mock instance.
+// NewMockServiceLogStream creates a new mock instance
 func NewMockServiceLogStream(ctrl *gomock.Controller) *MockServiceLogStream {
 	mock := &MockServiceLogStream{ctrl: ctrl}
 	mock.recorder = &MockServiceLogStreamMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockServiceLogStream) EXPECT() *MockServiceLogStreamMockRecorder {
 	return m.recorder
 }
 
-// CheckExit mocks base method.
+// NewSession mocks base method
+func (m *MockServiceLogStream) NewSession(prefix string) ss.ServiceLogStream {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewSession", prefix)
+	ret0, _ := ret[0].(ss.ServiceLogStream)
+	return ret0
+}
+
+// NewSession indicates an expected call of NewSession
+func (mr *MockServiceLogStreamMockRecorder) NewSession(prefix interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockServiceLogStream)(nil).NewSession), prefix)
+}
+
+// CheckExit mocks base method
 func (m *MockServiceLogStream) CheckExit(panicValue interface{}) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "CheckExit", panicValue)
 }
 
-// CheckExit indicates an expected call of CheckExit.
+// CheckExit indicates an expected call of CheckExit
 func (mr *MockServiceLogStreamMockRecorder) CheckExit(panicValue interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExit", reflect.TypeOf((*MockServiceLogStream)(nil).CheckExit), panicValue)
 }
 
-// CheckExitWithPanicDetails mocks base method.
+// CheckExitWithPanicDetails mocks base method
 func (m *MockServiceLogStream) CheckExitWithPanicDetails(panicValue interface{}, getPanicDetails func() string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "CheckExitWithPanicDetails", panicValue, getPanicDetails)
 }
 
-// CheckExitWithPanicDetails indicates an expected call of CheckExitWithPanicDetails.
+// CheckExitWithPanicDetails indicates an expected call of CheckExitWithPanicDetails
 func (mr *MockServiceLogStreamMockRecorder) CheckExitWithPanicDetails(panicValue, getPanicDetails interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExitWithPanicDetails", reflect.TypeOf((*MockServiceLogStream)(nil).CheckExitWithPanicDetails), panicValue, getPanicDetails)
 }
 
-// Debug mocks base method.
+// checkPanic mocks base method
+func (m *MockServiceLogStream) checkPanic(panicValue interface{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "checkPanic", panicValue)
+}
+
+// checkPanic indicates an expected call of checkPanic
+func (mr *MockServiceLogStreamMockRecorder) checkPanic(panicValue interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanic", reflect.TypeOf((*MockServiceLogStream)(nil).checkPanic), panicValue)
+}
+
+// checkPanicWithDetails mocks base method
+func (m *MockServiceLogStream) checkPanicWithDetails(panicValue interface{}, getPanicDetails func() string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "checkPanicWithDetails", panicValue, getPanicDetails)
+}
+
+// checkPanicWithDetails indicates an expected call of checkPanicWithDetails
+func (mr *MockServiceLogStreamMockRecorder) checkPanicWithDetails(panicValue, getPanicDetails interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanicWithDetails", reflect.TypeOf((*MockServiceLogStream)(nil).checkPanicWithDetails), panicValue, getPanicDetails)
+}
+
+// Debug mocks base method
 func (m *MockServiceLogStream) Debug(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{format}
@@ -68,43 +105,14 @@ func (m *MockServiceLogStream) Debug(format string, args ...interface{}) {
 	m.ctrl.Call(m, "Debug", varargs...)
 }
 
-// Debug indicates an expected call of Debug.
+// Debug indicates an expected call of Debug
 func (mr *MockServiceLogStreamMockRecorder) Debug(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{format}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Debug", reflect.TypeOf((*MockServiceLogStream)(nil).Debug), varargs...)
 }
 
-// Err mocks base method.
-func (m *MockServiceLogStream) Err(err error) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Err", err)
-}
-
-// Err indicates an expected call of Err.
-func (mr *MockServiceLogStreamMockRecorder) Err(err interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockServiceLogStream)(nil).Err), err)
-}
-
-// Error mocks base method.
-func (m *MockServiceLogStream) Error(format string, args ...interface{}) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{format}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Error", varargs...)
-}
-
-// Error indicates an expected call of Error.
-func (mr *MockServiceLogStreamMockRecorder) Error(format interface{}, args ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{format}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockServiceLogStream)(nil).Error), varargs...)
-}
-
-// Info mocks base method.
+// Info mocks base method
 func (m *MockServiceLogStream) Info(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{format}
@@ -114,45 +122,14 @@ func (m *MockServiceLogStream) Info(format string, args ...interface{}) {
 	m.ctrl.Call(m, "Info", varargs...)
 }
 
-// Info indicates an expected call of Info.
+// Info indicates an expected call of Info
 func (mr *MockServiceLogStreamMockRecorder) Info(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{format}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockServiceLogStream)(nil).Info), varargs...)
 }
 
-// NewSession mocks base method.
-func (m *MockServiceLogStream) NewSession(prefix string) ss.ServiceLogStream {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSession", prefix)
-	ret0, _ := ret[0].(ss.ServiceLogStream)
-	return ret0
-}
-
-// NewSession indicates an expected call of NewSession.
-func (mr *MockServiceLogStreamMockRecorder) NewSession(prefix interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockServiceLogStream)(nil).NewSession), prefix)
-}
-
-// Panic mocks base method.
-func (m *MockServiceLogStream) Panic(format string, args ...interface{}) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{format}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Panic", varargs...)
-}
-
-// Panic indicates an expected call of Panic.
-func (mr *MockServiceLogStreamMockRecorder) Panic(format interface{}, args ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{format}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Panic", reflect.TypeOf((*MockServiceLogStream)(nil).Panic), varargs...)
-}
-
-// Warn mocks base method.
+// Warn mocks base method
 func (m *MockServiceLogStream) Warn(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{format}
@@ -162,85 +139,145 @@ func (m *MockServiceLogStream) Warn(format string, args ...interface{}) {
 	m.ctrl.Call(m, "Warn", varargs...)
 }
 
-// Warn indicates an expected call of Warn.
+// Warn indicates an expected call of Warn
 func (mr *MockServiceLogStreamMockRecorder) Warn(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{format}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Warn", reflect.TypeOf((*MockServiceLogStream)(nil).Warn), varargs...)
 }
 
-// checkPanic mocks base method.
-func (m *MockServiceLogStream) checkPanic(panicValue interface{}) {
+// Error mocks base method
+func (m *MockServiceLogStream) Error(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "checkPanic", panicValue)
+	varargs := []interface{}{format}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Error", varargs...)
 }
 
-// checkPanic indicates an expected call of checkPanic.
-func (mr *MockServiceLogStreamMockRecorder) checkPanic(panicValue interface{}) *gomock.Call {
+// Error indicates an expected call of Error
+func (mr *MockServiceLogStreamMockRecorder) Error(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanic", reflect.TypeOf((*MockServiceLogStream)(nil).checkPanic), panicValue)
+	varargs := append([]interface{}{format}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockServiceLogStream)(nil).Error), varargs...)
 }
 
-// checkPanicWithDetails mocks base method.
-func (m *MockServiceLogStream) checkPanicWithDetails(panicValue interface{}, getPanicDetails func() string) {
+// Err mocks base method
+func (m *MockServiceLogStream) Err(err error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "checkPanicWithDetails", panicValue, getPanicDetails)
+	m.ctrl.Call(m, "Err", err)
 }
 
-// checkPanicWithDetails indicates an expected call of checkPanicWithDetails.
-func (mr *MockServiceLogStreamMockRecorder) checkPanicWithDetails(panicValue, getPanicDetails interface{}) *gomock.Call {
+// Err indicates an expected call of Err
+func (mr *MockServiceLogStreamMockRecorder) Err(err interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanicWithDetails", reflect.TypeOf((*MockServiceLogStream)(nil).checkPanicWithDetails), panicValue, getPanicDetails)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockServiceLogStream)(nil).Err), err)
 }
 
-// MockServiceLog is a mock of ServiceLog interface.
+// Panic mocks base method
+func (m *MockServiceLogStream) Panic(format string, args ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{format}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Panic", varargs...)
+}
+
+// Panic indicates an expected call of Panic
+func (mr *MockServiceLogStreamMockRecorder) Panic(format interface{}, args ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{format}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Panic", reflect.TypeOf((*MockServiceLogStream)(nil).Panic), varargs...)
+}
+
+// MockServiceLog is a mock of ServiceLog interface
 type MockServiceLog struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceLogMockRecorder
 }
 
-// MockServiceLogMockRecorder is the mock recorder for MockServiceLog.
+// MockServiceLogMockRecorder is the mock recorder for MockServiceLog
 type MockServiceLogMockRecorder struct {
 	mock *MockServiceLog
 }
 
-// NewMockServiceLog creates a new mock instance.
+// NewMockServiceLog creates a new mock instance
 func NewMockServiceLog(ctrl *gomock.Controller) *MockServiceLog {
 	mock := &MockServiceLog{ctrl: ctrl}
 	mock.recorder = &MockServiceLogMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockServiceLog) EXPECT() *MockServiceLogMockRecorder {
 	return m.recorder
 }
 
-// CheckExit mocks base method.
+// NewSession mocks base method
+func (m *MockServiceLog) NewSession(prefix string) ss.ServiceLogStream {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewSession", prefix)
+	ret0, _ := ret[0].(ss.ServiceLogStream)
+	return ret0
+}
+
+// NewSession indicates an expected call of NewSession
+func (mr *MockServiceLogMockRecorder) NewSession(prefix interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockServiceLog)(nil).NewSession), prefix)
+}
+
+// CheckExit mocks base method
 func (m *MockServiceLog) CheckExit(panicValue interface{}) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "CheckExit", panicValue)
 }
 
-// CheckExit indicates an expected call of CheckExit.
+// CheckExit indicates an expected call of CheckExit
 func (mr *MockServiceLogMockRecorder) CheckExit(panicValue interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExit", reflect.TypeOf((*MockServiceLog)(nil).CheckExit), panicValue)
 }
 
-// CheckExitWithPanicDetails mocks base method.
+// CheckExitWithPanicDetails mocks base method
 func (m *MockServiceLog) CheckExitWithPanicDetails(panicValue interface{}, getPanicDetails func() string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "CheckExitWithPanicDetails", panicValue, getPanicDetails)
 }
 
-// CheckExitWithPanicDetails indicates an expected call of CheckExitWithPanicDetails.
+// CheckExitWithPanicDetails indicates an expected call of CheckExitWithPanicDetails
 func (mr *MockServiceLogMockRecorder) CheckExitWithPanicDetails(panicValue, getPanicDetails interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExitWithPanicDetails", reflect.TypeOf((*MockServiceLog)(nil).CheckExitWithPanicDetails), panicValue, getPanicDetails)
 }
 
-// Debug mocks base method.
+// checkPanic mocks base method
+func (m *MockServiceLog) checkPanic(panicValue interface{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "checkPanic", panicValue)
+}
+
+// checkPanic indicates an expected call of checkPanic
+func (mr *MockServiceLogMockRecorder) checkPanic(panicValue interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanic", reflect.TypeOf((*MockServiceLog)(nil).checkPanic), panicValue)
+}
+
+// checkPanicWithDetails mocks base method
+func (m *MockServiceLog) checkPanicWithDetails(panicValue interface{}, getPanicDetails func() string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "checkPanicWithDetails", panicValue, getPanicDetails)
+}
+
+// checkPanicWithDetails indicates an expected call of checkPanicWithDetails
+func (mr *MockServiceLogMockRecorder) checkPanicWithDetails(panicValue, getPanicDetails interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanicWithDetails", reflect.TypeOf((*MockServiceLog)(nil).checkPanicWithDetails), panicValue, getPanicDetails)
+}
+
+// Debug mocks base method
 func (m *MockServiceLog) Debug(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{format}
@@ -250,43 +287,14 @@ func (m *MockServiceLog) Debug(format string, args ...interface{}) {
 	m.ctrl.Call(m, "Debug", varargs...)
 }
 
-// Debug indicates an expected call of Debug.
+// Debug indicates an expected call of Debug
 func (mr *MockServiceLogMockRecorder) Debug(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{format}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Debug", reflect.TypeOf((*MockServiceLog)(nil).Debug), varargs...)
 }
 
-// Err mocks base method.
-func (m *MockServiceLog) Err(err error) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Err", err)
-}
-
-// Err indicates an expected call of Err.
-func (mr *MockServiceLogMockRecorder) Err(err interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockServiceLog)(nil).Err), err)
-}
-
-// Error mocks base method.
-func (m *MockServiceLog) Error(format string, args ...interface{}) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{format}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Error", varargs...)
-}
-
-// Error indicates an expected call of Error.
-func (mr *MockServiceLogMockRecorder) Error(format interface{}, args ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{format}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockServiceLog)(nil).Error), varargs...)
-}
-
-// Info mocks base method.
+// Info mocks base method
 func (m *MockServiceLog) Info(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{format}
@@ -296,57 +304,14 @@ func (m *MockServiceLog) Info(format string, args ...interface{}) {
 	m.ctrl.Call(m, "Info", varargs...)
 }
 
-// Info indicates an expected call of Info.
+// Info indicates an expected call of Info
 func (mr *MockServiceLogMockRecorder) Info(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{format}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockServiceLog)(nil).Info), varargs...)
 }
 
-// NewSession mocks base method.
-func (m *MockServiceLog) NewSession(prefix string) ss.ServiceLogStream {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSession", prefix)
-	ret0, _ := ret[0].(ss.ServiceLogStream)
-	return ret0
-}
-
-// NewSession indicates an expected call of NewSession.
-func (mr *MockServiceLogMockRecorder) NewSession(prefix interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockServiceLog)(nil).NewSession), prefix)
-}
-
-// Panic mocks base method.
-func (m *MockServiceLog) Panic(format string, args ...interface{}) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{format}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Panic", varargs...)
-}
-
-// Panic indicates an expected call of Panic.
-func (mr *MockServiceLogMockRecorder) Panic(format interface{}, args ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{format}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Panic", reflect.TypeOf((*MockServiceLog)(nil).Panic), varargs...)
-}
-
-// Started mocks base method.
-func (m *MockServiceLog) Started() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Started")
-}
-
-// Started indicates an expected call of Started.
-func (mr *MockServiceLogMockRecorder) Started() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Started", reflect.TypeOf((*MockServiceLog)(nil).Started))
-}
-
-// Warn mocks base method.
+// Warn mocks base method
 func (m *MockServiceLog) Warn(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{format}
@@ -356,33 +321,188 @@ func (m *MockServiceLog) Warn(format string, args ...interface{}) {
 	m.ctrl.Call(m, "Warn", varargs...)
 }
 
-// Warn indicates an expected call of Warn.
+// Warn indicates an expected call of Warn
 func (mr *MockServiceLogMockRecorder) Warn(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{format}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Warn", reflect.TypeOf((*MockServiceLog)(nil).Warn), varargs...)
 }
 
-// checkPanic mocks base method.
-func (m *MockServiceLog) checkPanic(panicValue interface{}) {
+// Error mocks base method
+func (m *MockServiceLog) Error(format string, args ...interface{}) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "checkPanic", panicValue)
+	varargs := []interface{}{format}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Error", varargs...)
 }
 
-// checkPanic indicates an expected call of checkPanic.
-func (mr *MockServiceLogMockRecorder) checkPanic(panicValue interface{}) *gomock.Call {
+// Error indicates an expected call of Error
+func (mr *MockServiceLogMockRecorder) Error(format interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanic", reflect.TypeOf((*MockServiceLog)(nil).checkPanic), panicValue)
+	varargs := append([]interface{}{format}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockServiceLog)(nil).Error), varargs...)
 }
 
-// checkPanicWithDetails mocks base method.
-func (m *MockServiceLog) checkPanicWithDetails(panicValue interface{}, getPanicDetails func() string) {
+// Err mocks base method
+func (m *MockServiceLog) Err(err error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "checkPanicWithDetails", panicValue, getPanicDetails)
+	m.ctrl.Call(m, "Err", err)
 }
 
-// checkPanicWithDetails indicates an expected call of checkPanicWithDetails.
-func (mr *MockServiceLogMockRecorder) checkPanicWithDetails(panicValue, getPanicDetails interface{}) *gomock.Call {
+// Err indicates an expected call of Err
+func (mr *MockServiceLogMockRecorder) Err(err interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "checkPanicWithDetails", reflect.TypeOf((*MockServiceLog)(nil).checkPanicWithDetails), panicValue, getPanicDetails)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockServiceLog)(nil).Err), err)
+}
+
+// Panic mocks base method
+func (m *MockServiceLog) Panic(format string, args ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{format}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Panic", varargs...)
+}
+
+// Panic indicates an expected call of Panic
+func (mr *MockServiceLogMockRecorder) Panic(format interface{}, args ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{format}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Panic", reflect.TypeOf((*MockServiceLog)(nil).Panic), varargs...)
+}
+
+// Started mocks base method
+func (m *MockServiceLog) Started() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Started")
+}
+
+// Started indicates an expected call of Started
+func (mr *MockServiceLogMockRecorder) Started() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Started", reflect.TypeOf((*MockServiceLog)(nil).Started))
+}
+
+// MocklogDestination is a mock of logDestination interface
+type MocklogDestination struct {
+	ctrl     *gomock.Controller
+	recorder *MocklogDestinationMockRecorder
+}
+
+// MocklogDestinationMockRecorder is the mock recorder for MocklogDestination
+type MocklogDestinationMockRecorder struct {
+	mock *MocklogDestination
+}
+
+// NewMocklogDestination creates a new mock instance
+func NewMocklogDestination(ctrl *gomock.Controller) *MocklogDestination {
+	mock := &MocklogDestination{ctrl: ctrl}
+	mock.recorder = &MocklogDestinationMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MocklogDestination) EXPECT() *MocklogDestinationMockRecorder {
+	return m.recorder
+}
+
+// GetName mocks base method
+func (m *MocklogDestination) GetName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetName indicates an expected call of GetName
+func (mr *MocklogDestinationMockRecorder) GetName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MocklogDestination)(nil).GetName))
+}
+
+// WriteDebug mocks base method
+func (m *MocklogDestination) WriteDebug(message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteDebug", message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteDebug indicates an expected call of WriteDebug
+func (mr *MocklogDestinationMockRecorder) WriteDebug(message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteDebug", reflect.TypeOf((*MocklogDestination)(nil).WriteDebug), message)
+}
+
+// WriteInfo mocks base method
+func (m *MocklogDestination) WriteInfo(message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteInfo", message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteInfo indicates an expected call of WriteInfo
+func (mr *MocklogDestinationMockRecorder) WriteInfo(message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteInfo", reflect.TypeOf((*MocklogDestination)(nil).WriteInfo), message)
+}
+
+// WriteWarn mocks base method
+func (m *MocklogDestination) WriteWarn(message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteWarn", message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteWarn indicates an expected call of WriteWarn
+func (mr *MocklogDestinationMockRecorder) WriteWarn(message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteWarn", reflect.TypeOf((*MocklogDestination)(nil).WriteWarn), message)
+}
+
+// WriteError mocks base method
+func (m *MocklogDestination) WriteError(message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteError", message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteError indicates an expected call of WriteError
+func (mr *MocklogDestinationMockRecorder) WriteError(message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteError", reflect.TypeOf((*MocklogDestination)(nil).WriteError), message)
+}
+
+// WritePanic mocks base method
+func (m *MocklogDestination) WritePanic(message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WritePanic", message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WritePanic indicates an expected call of WritePanic
+func (mr *MocklogDestinationMockRecorder) WritePanic(message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WritePanic", reflect.TypeOf((*MocklogDestination)(nil).WritePanic), message)
+}
+
+// Sync mocks base method
+func (m *MocklogDestination) Sync() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sync")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Sync indicates an expected call of Sync
+func (mr *MocklogDestinationMockRecorder) Sync() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sync", reflect.TypeOf((*MocklogDestination)(nil).Sync))
 }

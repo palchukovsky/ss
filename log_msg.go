@@ -14,17 +14,18 @@ import (
 )
 
 const (
-	logMsgNodeTime         = "time"
-	logMsgNodeMessage      = "message"
-	logMsgNodeLevel        = "level"
-	logMsgNodeErrorList    = "errs"
-	logMsgNodeUser         = "user"
-	logMsgNodeConnection   = "connection"
-	logMsgNodeRequest      = "request"
-	logMsgNodeRequestList  = "requests"
-	logMsgNodeResponseList = "responses"
-	logMsgNodeStack        = "stack"
-	logMsgNodeMarshalError = "marshalErr"
+	logMsgNodeTime                 = "time"
+	logMsgNodeMessage              = "message"
+	logMsgNodeLevel                = "level"
+	logMsgNodeErrorList            = "err"
+	logMsgNodeUser                 = "user"
+	logMsgNodeConnection           = "connection"
+	logMsgNodeRequest              = "request"
+	logMsgNodeDumpList             = "dumps"
+	logMsgNodeDumpListRequestList  = "request"
+	logMsgNodeDumpListResponseList = "request"
+	logMsgNodeStack                = "stack"
+	logMsgNodeMarshalError         = "marshalErr"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,13 +59,13 @@ func (m *LogMsg) Add(source LogMsgAttr) *LogMsg {
 func (m *LogMsg) AddRequest(source interface{}) *LogMsg {
 	m.attributes = append(
 		m.attributes,
-		NewLogMsgAttrDump(logMsgNodeRequestList, source))
+		NewLogMsgAttrDump(logMsgNodeDumpListRequestList, source))
 	return m
 }
 func (m *LogMsg) AddResponse(source interface{}) *LogMsg {
 	m.attributes = append(
 		m.attributes,
-		NewLogMsgAttrDump(logMsgNodeResponseList, source))
+		NewLogMsgAttrDump(logMsgNodeDumpListResponseList, source))
 	return m
 }
 
@@ -189,22 +190,37 @@ func NewLogMsgAttrDump(node string, obj interface{}) LogMsgAttrDump {
 	}
 }
 
+func MarshalLogMsgAttrDump(
+	nodeName string,
+	object interface{},
+	destination map[string]interface{},
+) {
+	value := logMsgAttrDumpValue{
+		Type:  newLogMsgValueTypeName(object),
+		Value: object,
+	}
+
+	if dumps, has := destination[logMsgNodeDumpList]; has {
+		destination := dumps.(map[string]interface{})
+		if node, has := destination[nodeName]; has {
+			destination[nodeName] = append(node.([]logMsgAttrDumpValue), value)
+			return
+		}
+		destination[nodeName] = []interface{}{value}
+		return
+	}
+	destination[logMsgNodeDumpList] = map[string]interface{}{
+		nodeName: []interface{}{value},
+	}
+}
+
 type logMsgAttrDumpValue struct {
 	Type  string      `json:"type"`
 	Value interface{} `json:"value"`
 }
 
 func (a LogMsgAttrDump) MarshalLogMsg(destination map[string]interface{}) {
-	value := logMsgAttrDumpValue{
-		Type:  newLogMsgValueTypeName(a.value),
-		Value: a.value,
-	}
-
-	if node, has := destination[a.node]; has {
-		destination[a.node] = append(node.([]logMsgAttrDumpValue), value)
-		return
-	}
-	destination[a.node] = []logMsgAttrDumpValue{value}
+	MarshalLogMsgAttrDump(a.node, a.value, destination)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

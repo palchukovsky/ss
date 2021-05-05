@@ -21,23 +21,10 @@ func newLogglyIfSet(
 	}
 
 	result := loggly{
-		messageChan: make(chan logglyMessage, 10),
+		messageChan: make(chan *LogMsg, 10),
 		syncChan:    make(chan struct{}),
 		client:      logglylib.New(config.SS.Log.Loggly),
 		sentry:      sentry,
-		statics: map[string]interface{}{
-			"module":  module,
-			"package": projectPackage,
-			"build": map[string]interface{}{
-				"id":         config.SS.Build.ID,
-				"commit":     config.SS.Build.Commit,
-				"builder":    config.SS.Build.Builder,
-				"maintainer": config.SS.Build.Maintainer,
-			},
-			"aws": map[string]interface{}{
-				"region": config.SS.Service.AWS.Region,
-			},
-		},
 	}
 
 	go result.runWriter()
@@ -46,70 +33,46 @@ func newLogglyIfSet(
 }
 
 type loggly struct {
-	messageChan chan logglyMessage
+	messageChan chan *LogMsg
 	syncChan    chan struct{}
 	client      *logglylib.Client
 	sentry      sentry
-	statics     map[string]interface{}
-}
-
-type logglyMessage struct {
-	Message *LogMsg
-	Write   func(client *logglylib.Client, message string) error
 }
 
 func (loggly) GetName() string { return "Loggly" }
 
 func (l loggly) WriteDebug(message *LogMsg) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Debug(m) })
+	l.write(message)
 	return nil
 }
 
 func (l loggly) WriteInfo(message *LogMsg) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Info(m) })
+	l.write(message)
 	return nil
 }
 
 func (l loggly) WriteWarn(message *LogMsg) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Warn(m) })
+	l.write(message)
 	return nil
 }
 
 func (l loggly) WriteError(message *LogMsg) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Error(m) })
+	l.write(message)
 	return nil
 }
 
 func (l loggly) WritePanic(message *LogMsg) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Critical(m) })
+	l.write(message)
 	return nil
 }
 
 func (l loggly) Sync() error {
-	l.messageChan <- logglyMessage{}
+	l.messageChan <- nil
 	<-l.syncChan
 	return nil
 }
 
-func (l loggly) write(
-	message *LogMsg,
-	write func(client *logglylib.Client, message string) error,
-) {
-	l.messageChan <- logglyMessage{
-		Message: message,
-		Write:   write,
-	}
-}
+func (l loggly) write(message *LogMsg) { l.messageChan <- message }
 
 func (l loggly) runWriter() {
 	defer func() {
@@ -121,14 +84,13 @@ func (l loggly) runWriter() {
 		}
 	}()
 
-	sequenceNumber := 0
 	for {
 		message, isOpen := <-l.messageChan
 		if !isOpen {
 			break
 		}
 
-		if message.Message == nil {
+		if message == nil {
 			if err := l.client.Flush(); err != nil {
 				log.Printf(`Error: Failed to sync log %q record: %v`, l.GetName(), err)
 				l.sentry.CaptureMessage(
@@ -138,17 +100,7 @@ func (l loggly) runWriter() {
 			continue
 		}
 
-		sequenceNumber++
-		message.Message.AddVal("n", sequenceNumber)
-
-		for k, v := range l.statics {
-			message.Message.AddVal(k, v)
-		}
-
-		err := message.Write(
-			l.client,
-			string(message.Message.ConvertToJSON()))
-		if err != nil {
+		if err := l.client.Send(message.MarshalMap()); err != nil {
 			log.Printf(`Error: Failed to write log %q record: %v`, l.GetName(), err)
 			l.sentry.CaptureMessage(
 				NewLogMsg(`failed to write log %q record`, l.GetName()).AddErr(err))

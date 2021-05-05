@@ -74,6 +74,19 @@ func NewLog(
 
 	result := serviceLog{
 		destinations: []logDestination{},
+		statics: map[string]interface{}{
+			"module":  module,
+			"package": projectPackage,
+			"build": map[string]interface{}{
+				"id":         config.SS.Build.ID,
+				"commit":     config.SS.Build.Commit,
+				"builder":    config.SS.Build.Builder,
+				"maintainer": config.SS.Build.Maintainer,
+			},
+			"as": map[string]interface{}{
+				"region": config.SS.Service.AWS.Region,
+			},
+		},
 	}
 
 	{
@@ -130,9 +143,11 @@ func NewLog(
 }
 
 type serviceLog struct {
-	destinations []logDestination
-	sentry       sentry
-	isPanic      bool
+	destinations   []logDestination
+	sentry         sentry
+	isPanic        bool
+	statics        map[string]interface{}
+	sequenceNumber uint
 }
 
 func (l serviceLog) Started() {
@@ -179,26 +194,26 @@ func (l *serviceLog) checkPanicWithDetails(
 }
 
 func (l serviceLog) Debug(m *LogMsg) {
-	m.SetLevel(logLevelDebug)
+	l.setStatics(logLevelDebug, m)
 	l.print(m)
 	l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
 }
 
 func (l serviceLog) Info(m *LogMsg) {
-	m.SetLevel(logLevelInfo)
+	l.setStatics(logLevelInfo, m)
 	l.print(m)
 	l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
 }
 
 func (l serviceLog) Warn(m *LogMsg) {
-	m.SetLevel(logLevelWarn)
+	l.setStatics(logLevelWarn, m)
 	l.print(m)
 	l.sentry.CaptureMessage(m)
 	l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
 }
 
 func (l serviceLog) Error(m *LogMsg) {
-	m.SetLevel(logLevelError)
+	l.setStatics(logLevelError, m)
 	m.AddCurrentStack()
 	l.print(m)
 	l.sentry.CaptureMessage(m)
@@ -206,8 +221,19 @@ func (l serviceLog) Error(m *LogMsg) {
 }
 
 func (l serviceLog) Panic(m *LogMsg) {
-	m.SetLevel(logLevelPanic)
+	l.setStatics(logLevelPanic, m)
 	l.panic(m.GetMessage(), m)
+}
+
+func (l *serviceLog) setStatics(level logLevel, message *LogMsg) {
+	l.sequenceNumber++
+	message.AddVal("", l.sequenceNumber)
+
+	for k, v := range l.statics {
+		message.AddVal(k, v)
+	}
+
+	message.SetLevel(level)
 }
 
 func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {

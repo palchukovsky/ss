@@ -125,13 +125,13 @@ func (m LogMsg) MarshalAttributesMap() map[string]interface{} {
 	}
 
 	for _, a := range m.attributes {
-		a.Marshal(result)
+		a.MarshalLogMsg(result)
 	}
 
 	if m.errs != nil {
 		errs := make([]interface{}, len(m.errs))
 		for i, e := range m.errs {
-			errs[i] = e.Marshal()
+			errs[i] = e.MarshalLogMsg()
 		}
 		result[logMsgNodeErrorList] = errs
 	}
@@ -154,7 +154,7 @@ func (m LogMsg) ConvertAttributesToJSON() []byte {
 ////////////////////////////////////////////////////////////////////////////////
 
 type LogMsgAttr interface {
-	Marshal(destination map[string]interface{})
+	MarshalLogMsg(destination map[string]interface{})
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -171,7 +171,7 @@ func NewLogMsgAttrVal(node string, value interface{}) LogMsgAttrVal {
 	}
 }
 
-func (a LogMsgAttrVal) Marshal(destination map[string]interface{}) {
+func (a LogMsgAttrVal) MarshalLogMsg(destination map[string]interface{}) {
 	destination[a.node] = a.value
 }
 
@@ -194,7 +194,7 @@ type logMsgAttrDumpValue struct {
 	Value interface{} `json:"value"`
 }
 
-func (a LogMsgAttrDump) Marshal(destination map[string]interface{}) {
+func (a LogMsgAttrDump) MarshalLogMsg(destination map[string]interface{}) {
 	value := logMsgAttrDumpValue{
 		Type:  newLogMsgValueTypeName(a.value),
 		Value: a.value,
@@ -217,7 +217,7 @@ func newLogMsgAttrErr(source error) logMsgAttrErr {
 
 func (a logMsgAttrErr) Get() error { return a.value }
 
-func (a logMsgAttrErr) Marshal() interface{} {
+func (a logMsgAttrErr) MarshalLogMsg() interface{} {
 	return struct {
 		Type  string `json:"type"`
 		Value string `json:"value"`
@@ -263,7 +263,7 @@ func newLogMsgAttrCurrentStack() logMsgAttrStack {
 	return logMsgAttrStack(stack)
 }
 
-func (a logMsgAttrStack) Marshal(destination map[string]interface{}) {
+func (a logMsgAttrStack) MarshalLogMsg(destination map[string]interface{}) {
 	destination[logMsgNodeStack] = a
 }
 

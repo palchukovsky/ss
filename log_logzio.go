@@ -24,19 +24,6 @@ func newLogzioIfSet(
 		messageChan: make(chan *LogMsg, 10),
 		syncChan:    make(chan struct{}),
 		sentry:      sentry,
-		statics: map[string]interface{}{
-			"module":  module,
-			"package": projectPackage,
-			"build": map[string]interface{}{
-				"id":         config.SS.Build.ID,
-				"commit":     config.SS.Build.Commit,
-				"builder":    config.SS.Build.Builder,
-				"maintainer": config.SS.Build.Maintainer,
-			},
-			"aws": map[string]interface{}{
-				"region": config.SS.Service.AWS.Region,
-			},
-		},
 	}
 
 	var err error
@@ -58,7 +45,6 @@ type logzio struct {
 	syncChan    chan struct{}
 	sender      *logziolib.LogzioSender
 	sentry      sentry
-	statics     map[string]interface{}
 }
 
 func (logzio) GetName() string { return "Logz.io" }
@@ -97,7 +83,6 @@ func (l logzio) Sync() error {
 func (l logzio) runWriter() {
 	defer l.sender.Stop()
 
-	sequenceNumber := 0
 	for {
 		message, isOpen := <-l.messageChan
 		if !isOpen {
@@ -112,13 +97,6 @@ func (l logzio) runWriter() {
 			}
 			l.syncChan <- struct{}{}
 			continue
-		}
-
-		sequenceNumber++
-		message.AddVal("n", sequenceNumber)
-
-		for k, v := range l.statics {
-			message.AddVal(k, v)
 		}
 
 		if err := l.sender.Send(message.ConvertToJSON()); err != nil {

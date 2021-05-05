@@ -74,7 +74,20 @@ type sentryConnect struct{}
 
 func (s sentryConnect) CaptureMessage(message *LogMsg) {
 	event := s.newEvent(message, false)
+
 	event.Message = message.GetMessage()
+
+	if errs := message.GetErrs(); len(errs) > 0 {
+		for i, err := range errs {
+			if i == 0 {
+				event.Message += ": "
+			} else {
+				event.Message += "; "
+			}
+			event.Message += fmt.Sprintf("%v", err.Get())
+		}
+	}
+
 	if sentryclient.CaptureEvent(event) == nil {
 		log.Println("Failed to capture message by Sentry.")
 	}
@@ -88,11 +101,13 @@ func (s sentryConnect) Recover(panicValue interface{}, message *LogMsg) {
 	case error:
 		const maxErrorDepthFromDentryclient = 10
 		for i := 0; i < maxErrorDepthFromDentryclient && err != nil; i++ {
-			event.Exception = append(event.Exception, sentryclient.Exception{
-				Value:      err.Error(),
-				Type:       reflect.TypeOf(err).String(),
-				Stacktrace: sentryclient.ExtractStacktrace(err),
-			})
+			event.Exception = append(
+				event.Exception,
+				sentryclient.Exception{
+					Value:      err.Error(),
+					Type:       reflect.TypeOf(err).String(),
+					Stacktrace: sentryclient.ExtractStacktrace(err),
+				})
 			switch previous := err.(type) {
 			case interface{ Unwrap() error }:
 				err = previous.Unwrap()
@@ -124,6 +139,8 @@ func (sentryConnect) newEvent(
 	isCrash bool,
 ) *sentryclient.Event {
 	result := sentryclient.NewEvent()
+
+	result.Message = source.GetMessage()
 
 	switch source.GetLevel() {
 	case logLevelDebug:

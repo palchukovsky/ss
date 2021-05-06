@@ -220,10 +220,7 @@ func (l serviceLog) Error(m *LogMsg) {
 	l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
 }
 
-func (l serviceLog) Panic(m *LogMsg) {
-	l.setStatics(logLevelPanic, m)
-	l.panic(m.GetMessage(), m)
-}
+func (l serviceLog) Panic(m *LogMsg) { l.panic(m.GetMessage(), m) }
 
 func (l *serviceLog) setStatics(level logLevel, message *LogMsg) {
 	l.sequenceNumber++
@@ -240,9 +237,12 @@ func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
 	defer l.sentry.Flush()
 	defer l.sync()
 
+	l.setStatics(logLevelPanic, message)
 	message.AddCurrentStack()
+	message.AddPanic(panicValue)
 
 	l.sentry.Recover(panicValue, message)
+
 	l.forEachDestination(func(d logDestination) error {
 		return d.WritePanic(message)
 	})

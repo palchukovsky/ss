@@ -70,7 +70,12 @@ func (m *LogMsg) AddResponse(source interface{}) *LogMsg {
 }
 
 func (m *LogMsg) AddErr(source error) *LogMsg {
-	m.errs = append(m.errs, newLogMsgAttrErr(source))
+	m.errs = append(m.errs, newLogMsgAttrError(source))
+	return m
+}
+
+func (m *LogMsg) AddPanic(source interface{}) *LogMsg {
+	m.errs = append(m.errs, newlogMsgAttrPanic(source))
 	return m
 }
 
@@ -247,22 +252,51 @@ func (a LogMsgAttrDumpGroup) MarshalLogMsg(destination map[string]interface{}) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type logMsgAttrErr struct{ value error }
-
-func newLogMsgAttrErr(source error) logMsgAttrErr {
-	return logMsgAttrErr{value: source}
+type logMsgAttrErr interface {
+	Get() error
+	MarshalLogMsg() interface{}
 }
 
-func (a logMsgAttrErr) Get() error { return a.value }
+type logMsgAttrError struct{ value error }
 
-func (a logMsgAttrErr) MarshalLogMsg() interface{} {
+func newLogMsgAttrError(source error) logMsgAttrErr {
+	return logMsgAttrError{value: source}
+}
+
+func (a logMsgAttrError) Get() error { return a.value }
+
+func (a logMsgAttrError) MarshalLogMsg() interface{} {
 	return struct {
 		Type  string `json:"type"`
 		Value string `json:"value"`
 	}{
 		Type:  newLogMsgValueTypeName(a.value),
-		Value: fmt.Sprintf("%v", a.value),
+		Value: a.Get().Error(),
 	}
+}
+
+type logMsgAttrPanic struct{ value logMsgAttrPanicValue }
+
+func newlogMsgAttrPanic(source interface{}) logMsgAttrErr {
+	return logMsgAttrPanic{value: logMsgAttrPanicValue{value: source}}
+}
+
+func (a logMsgAttrPanic) Get() error { return a.value }
+
+func (a logMsgAttrPanic) MarshalLogMsg() interface{} {
+	return struct {
+		Type  string `json:"type"`
+		Value string `json:"value"`
+	}{
+		Type:  newLogMsgValueTypeName(a.value),
+		Value: a.Get().Error(),
+	}
+}
+
+type logMsgAttrPanicValue struct{ value interface{} }
+
+func (v logMsgAttrPanicValue) Error() string {
+	return fmt.Sprintf("%v", v.value)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

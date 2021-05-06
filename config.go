@@ -54,11 +54,11 @@ func (ServiceConfig) IsExtraLogEnabled() bool { return !S.Build().IsProd() }
 ////////////////////////////////////////////////////////////////////////////////
 
 type Build struct {
-	Version    string `json:"version"`
-	Commit     string `json:"commit"`
-	ID         string `json:"id"`
-	Builder    string `json:"builder"`
-	Maintainer string `json:"maintainer"`
+	Version    string `json:"version"`    // verbose product version
+	Commit     string `json:"commit"`     // full repository commid ID
+	ID         string `json:"id"`         // verbose shot build ID to compare
+	Builder    string `json:"builder"`    // build ID on builder
+	Maintainer string `json:"maintainer"` // person who started build
 }
 
 // IsProd returns true if build is production.

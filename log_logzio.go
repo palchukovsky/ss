@@ -30,7 +30,7 @@ func newLogzioIfSet(
 	result.sender, err = logziolib.New(
 		config.SS.Log.Logzio,
 		// logziolib.SetDebug(os.Stderr),
-		logziolib.SetTempDirectory("logzio_tmp"))
+		logziolib.SetTempDirectory("/tmp/logzio_tmp"))
 	if err != nil {
 		panic(err)
 	}

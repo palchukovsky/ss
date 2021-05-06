@@ -22,6 +22,8 @@ type service struct{ Lambda }
 func (service *service) Start() { awslambda.Start(service.handle) }
 
 func (service *service) handle(event *events.DynamoDBEvent) error {
+	defer func() { ss.S.Log().CheckExit(recover()) }()
+
 	if len(event.Records) == 0 {
 		ss.S.Log().Warn(ss.NewLogMsg("empty event list").AddRequest(*event))
 		return nil
@@ -30,7 +32,7 @@ func (service *service) handle(event *events.DynamoDBEvent) error {
 	log := ss.S.Log().NewSession(
 		ss.NewLogPrefix().AddRequestID(event.Records[0].EventID))
 	defer func() {
-		log.CheckExitWithPanicDetails(
+		log.CheckPanic(
 			recover(),
 			func() *ss.LogMsg {
 				return ss.NewLogMsg("panic at service handling").AddRequest(*event)

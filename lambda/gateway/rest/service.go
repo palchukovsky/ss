@@ -39,10 +39,11 @@ func (service service) Start() {
 }
 
 func (service service) handle(request awsRequest) (awsResponse, error) {
+	defer func() { ss.S.Log().CheckExit(recover()) }()
 
 	lambdaRequest := newRequest(request, service.Gateway, service.context)
 	defer func() {
-		lambdaRequest.Log().CheckExitWithPanicDetails(
+		lambdaRequest.Log().CheckPanic(
 			recover(),
 			func() *ss.LogMsg {
 				return ss.

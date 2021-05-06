@@ -14,29 +14,30 @@ import (
 type LogStream interface {
 	// NewLogSession creates the log session which allows setting records
 	// prefix for each session message.
-	NewSession(LogPrefix) LogStream
-
-	CheckExit(panicValue interface{})
-	CheckExitWithPanicDetails(
-		panicValue interface{},
-		getPanicDetails func() *LogMsg)
-
-	checkPanic(panicValue interface{})
-	checkPanicWithDetails(
-		panicValue interface{},
-		getPanicDetails func() *LogMsg)
+	NewSession(LogPrefix) LogSession
 
 	Debug(*LogMsg)
 	Info(*LogMsg)
 	Warn(*LogMsg)
 	Error(*LogMsg)
 	Panic(*LogMsg)
+
+	checkPanic(
+		panicValue interface{},
+		getPanicDetails func() *LogMsg)
 }
 
 type Log interface {
 	LogStream
-
 	Started()
+	CheckExit(panicValue interface{})
+}
+
+type LogSession interface {
+	LogStream
+	CheckPanic(
+		panicValue interface{},
+		getPanicDetails func() *LogMsg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -167,31 +168,18 @@ func (l serviceLog) Started() {
 	l.Debug(NewLogMsg("started"))
 }
 
-func (l *serviceLog) NewSession(prefix LogPrefix) LogStream {
+func (l *serviceLog) NewSession(prefix LogPrefix) LogSession {
 	return newLogSession(l, prefix)
 }
 
 func (l *serviceLog) CheckExit(panicValue interface{}) {
-	l.CheckExitWithPanicDetails(
+	defer l.sync()
+	l.checkPanic(
 		panicValue,
 		func() *LogMsg { return NewLogMsg("panic detected at exit") })
 }
 
-func (l *serviceLog) CheckExitWithPanicDetails(
-	panicValue interface{},
-	getPanicDetails func() *LogMsg,
-) {
-	defer l.sync()
-	l.checkPanicWithDetails(panicValue, getPanicDetails)
-}
-
-func (l *serviceLog) checkPanic(panicValue interface{}) {
-	l.checkPanicWithDetails(
-		panicValue,
-		func() *LogMsg { return NewLogMsg("panic detected") })
-}
-
-func (l *serviceLog) checkPanicWithDetails(
+func (l *serviceLog) checkPanic(
 	panicValue interface{},
 	getPanicDetails func() *LogMsg,
 ) {
@@ -377,36 +365,26 @@ type serviceLogSession struct {
 func newLogSession(
 	log LogStream,
 	prefix LogPrefix,
-) LogStream {
+) LogSession {
 	return &serviceLogSession{log: log, prefix: prefix}
 }
 
-func (s *serviceLogSession) NewSession(prefix LogPrefix) LogStream {
+func (s *serviceLogSession) NewSession(prefix LogPrefix) LogSession {
 	return newLogSession(s, prefix)
 }
 
-func (s serviceLogSession) CheckExit(panicValue interface{}) {
-	s.checkPanic(panicValue)
-}
-
-func (s serviceLogSession) CheckExitWithPanicDetails(
+func (s serviceLogSession) CheckPanic(
 	panicValue interface{},
 	getPanicDetails func() *LogMsg,
 ) {
-	s.checkPanicWithDetails(
-		panicValue,
-		func() *LogMsg { return getPanicDetails().AddPrefix(s.prefix) })
+	s.checkPanic(panicValue, getPanicDetails)
 }
 
-func (s serviceLogSession) checkPanic(panicValue interface{}) {
-	s.log.checkPanic(panicValue)
-}
-
-func (s serviceLogSession) checkPanicWithDetails(
+func (s serviceLogSession) checkPanic(
 	panicValue interface{},
 	getPanicDetails func() *LogMsg,
 ) {
-	s.log.checkPanicWithDetails(
+	s.log.checkPanic(
 		panicValue,
 		func() *LogMsg { return getPanicDetails().AddPrefix(s.prefix) })
 }

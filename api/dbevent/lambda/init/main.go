@@ -78,8 +78,7 @@ func (lambda lambda) execute(
 		return err
 	}
 	if !isSent {
-		request.Log().Debug(
-			ss.NewLogMsg("already disconnected").AddConnectionID(connection.ID))
+		request.Log().Debug(ss.NewLogMsg("already disconnected").Add(connection.ID))
 	}
 
 	return nil

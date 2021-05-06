@@ -129,7 +129,7 @@ func (lambda lambda) Execute(request rest.Request) error {
 				ss.NewLogMsg(
 					"new user added from Firebase, access expires after %d mins",
 					int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
-					AddUser(user.ID).
+					Add(user.ID).
 					AddVal("firebaseSignInProvider", token.Firebase.SignInProvider))
 		}
 	}
@@ -139,7 +139,7 @@ func (lambda lambda) Execute(request rest.Request) error {
 			ss.NewLogMsg(
 				"user authed by Firebase, access expires after %d mins",
 				int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
-				AddUser(user.ID).
+				Add(user.ID).
 				AddVal("firebaseSignInProvider", token.Firebase.SignInProvider))
 		lambda.updateUser(*firebaseUser, request, user)
 	}
@@ -303,7 +303,7 @@ func (lambda lambda) updateUser(
 		RequestAndReturn(&record)
 	if err != nil || !isFound {
 		request.Log().Error(
-			ss.NewLogMsg(`failed to update user`).AddUser(user.ID).AddErr(err))
+			ss.NewLogMsg(`failed to update user`).Add(user.ID).AddErr(err))
 		return
 	}
 

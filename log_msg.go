@@ -74,16 +74,13 @@ func (m *LogMsg) AddErr(source error) *LogMsg {
 	return m
 }
 
-func (m *LogMsg) AddUser(source UserID) *LogMsg {
-	return m.AddVal(logMsgNodeUser, source)
-}
-
-func (m *LogMsg) AddConnectionID(source ConnectionID) *LogMsg {
-	return m.AddVal(logMsgNodeConnection, source)
-}
-
 func (m *LogMsg) AddRequestID(source string) *LogMsg {
 	return m.AddVal(logMsgNodeConnection, source)
+}
+
+func (m *LogMsg) AddDump(source interface{}) *LogMsg {
+	m.attributes = append(m.attributes, newLogMsgAttrDump(source))
+	return m
 }
 
 func (m *LogMsg) AddVal(name string, value interface{}) *LogMsg {
@@ -178,10 +175,10 @@ func (a LogMsgAttrVal) MarshalLogMsg(destination map[string]interface{}) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type LogMsgAttrDump struct{ value interface{} }
+type logMsgAttrDump struct{ value interface{} }
 
-func NewLogMsgAttrDump(value interface{}) LogMsgAttrDump {
-	return LogMsgAttrDump{value: value}
+func newLogMsgAttrDump(value interface{}) logMsgAttrDump {
+	return logMsgAttrDump{value: value}
 }
 
 func MarshalLogMsgAttrDump(
@@ -202,13 +199,17 @@ func MarshalLogMsgAttrDump(
 	destination[logMsgNodeDumpList] = []logMsgAttrDumpValue{marshalValue}
 }
 
+func (a logMsgAttrDump) MarshalLogMsg(destination map[string]interface{}) {
+	MarshalLogMsgAttrDump(a.value, destination)
+}
+
 type logMsgAttrDumpValue struct {
 	Type  string      `json:"type"`
 	Value interface{} `json:"value"`
 }
 
 type LogMsgAttrDumpGroup struct {
-	LogMsgAttrDump
+	logMsgAttrDump
 	groupNode string
 }
 
@@ -217,7 +218,7 @@ func NewLogMsgAttrDumpGroup(
 	value interface{},
 ) LogMsgAttrDumpGroup {
 	return LogMsgAttrDumpGroup{
-		LogMsgAttrDump: NewLogMsgAttrDump(value),
+		logMsgAttrDump: newLogMsgAttrDump(value),
 		groupNode:      groupNode,
 	}
 }
@@ -313,14 +314,6 @@ func NewLogPrefix() LogPrefix { return make([]LogMsgAttr, 0, 1) }
 func (lp LogPrefix) Add(a LogMsgAttr) LogPrefix {
 	lp = append(lp, a)
 	return lp
-}
-
-func (lp LogPrefix) AddUser(source UserID) LogPrefix {
-	return lp.AddVal(logMsgNodeUser, source)
-}
-
-func (lp LogPrefix) AddConnectionID(source ConnectionID) LogPrefix {
-	return lp.AddVal(logMsgNodeConnection, source)
 }
 
 func (lp LogPrefix) AddRequestID(source string) LogPrefix {

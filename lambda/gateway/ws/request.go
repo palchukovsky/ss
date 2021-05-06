@@ -48,8 +48,8 @@ func newRequest(
 	}
 	logPrefix := ss.
 		NewLogPrefix().
-		AddUser(user).
-		AddConnectionID(ss.ConnectionID(awsRequest.RequestContext.ConnectionID)).
+		Add(user).
+		Add(ss.ConnectionID(awsRequest.RequestContext.ConnectionID)).
 		AddRequestID(awsRequest.RequestContext.RequestID)
 	return request{
 		Request:    gate.NewRequest(gateway, logPrefix, nil),

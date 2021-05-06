@@ -126,6 +126,6 @@ func getUserLog(request request, user ss.UserID) ss.LogStream {
 	return ss.S.Log().NewSession(
 		ss.
 			NewLogPrefix().
-			AddUser(user).
+			Add(user).
 			AddRequestID(request.RequestContext.RequestID))
 }

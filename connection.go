@@ -5,3 +5,7 @@ package ss
 
 // ConnectionID is a connection ID.
 type ConnectionID string
+
+func (id ConnectionID) MarshalLogMsg(destination map[string]interface{}) {
+	destination[logMsgNodeConnection] = id
+}

@@ -77,15 +77,8 @@ func (s sentryConnect) CaptureMessage(message *LogMsg) {
 
 	event.Message = message.GetMessage()
 
-	if errs := message.GetErrs(); len(errs) > 0 {
-		for i, err := range errs {
-			if i == 0 {
-				event.Message += ": "
-			} else {
-				event.Message += "; "
-			}
-			event.Message += fmt.Sprintf("%v", err.Get())
-		}
+	for _, err := range message.GetErrs() {
+		s.appendException(err.Get(), event)
 	}
 
 	if sentryclient.CaptureEvent(event) == nil {
@@ -99,24 +92,7 @@ func (s sentryConnect) Recover(panicValue interface{}, message *LogMsg) {
 
 	switch err := panicValue.(type) {
 	case error:
-		const maxErrorDepthFromDentryclient = 10
-		for i := 0; i < maxErrorDepthFromDentryclient && err != nil; i++ {
-			event.Exception = append(
-				event.Exception,
-				sentryclient.Exception{
-					Value:      err.Error(),
-					Type:       reflect.TypeOf(err).String(),
-					Stacktrace: sentryclient.ExtractStacktrace(err),
-				})
-			switch previous := err.(type) {
-			case interface{ Unwrap() error }:
-				err = previous.Unwrap()
-			case interface{ Cause() error }:
-				err = previous.Cause()
-			default:
-				err = nil
-			}
-		}
+		s.appendException(err, event)
 	case string:
 		event.Message = fmt.Sprintf("%s: %s", message.GetMessage(), err)
 	default:
@@ -168,6 +144,30 @@ func (sentryConnect) newEvent(
 	}
 
 	return result
+}
+
+func (sentryConnect) appendException(
+	source error,
+	event *sentryclient.Event,
+) {
+	const maxErrorDepthFromDentryclient = 10
+	for i := 0; i < maxErrorDepthFromDentryclient && source != nil; i++ {
+		event.Exception = append(
+			event.Exception,
+			sentryclient.Exception{
+				Value:      source.Error(),
+				Type:       reflect.TypeOf(source).String(),
+				Stacktrace: sentryclient.ExtractStacktrace(source),
+			})
+		switch previous := source.(type) {
+		case interface{ Unwrap() error }:
+			source = previous.Unwrap()
+		case interface{ Cause() error }:
+			source = previous.Cause()
+		default:
+			source = nil
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

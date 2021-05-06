@@ -6,6 +6,7 @@ package ss
 import (
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -83,12 +84,11 @@ func NewLog(
 				"builder":    config.SS.Build.Builder,
 				"maintainer": config.SS.Build.Maintainer,
 			},
-			"as": map[string]interface{}{
+			"aws": map[string]interface{}{
 				"region": config.SS.Service.AWS.Region,
 			},
 		},
-		messageChan: make(chan func(), 10),
-		syncChan:    make(chan struct{}),
+		messageChan: make(chan serviceLogMessage, 10),
 	}
 
 	{
@@ -150,13 +150,17 @@ type serviceLog struct {
 	destinations []logDestination
 	sentry       sentry
 
-	isPanic bool
+	isPanic int32
 
 	statics        map[string]interface{}
-	sequenceNumber uint
+	sequenceNumber uint32
 
-	messageChan chan func()
-	syncChan    chan struct{}
+	messageChan chan serviceLogMessage
+}
+
+type serviceLogMessage struct {
+	Write    func()
+	SyncChan chan struct{}
 }
 
 func (l serviceLog) Started() {
@@ -194,7 +198,7 @@ func (l *serviceLog) checkPanicWithDetails(
 	if panicValue == nil {
 		return
 	}
-	if l.isPanic {
+	if atomic.LoadInt32(&l.isPanic) != 0 {
 		// Rethrow.
 		panic(panicValue)
 	}
@@ -202,81 +206,89 @@ func (l *serviceLog) checkPanicWithDetails(
 }
 
 func (l serviceLog) Debug(m *LogMsg) {
-	l.messageChan <- func() {
-		l.setStatics(logLevelDebug, m)
-		l.print(m)
-		l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
+	sequenceNumber := atomic.AddUint32(&l.sequenceNumber, 1)
+	l.messageChan <- serviceLogMessage{
+		Write: func() {
+			l.setStatics(logLevelDebug, sequenceNumber, m)
+			l.print(m)
+			l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
+		},
 	}
 }
 
 func (l serviceLog) Info(m *LogMsg) {
-	l.messageChan <- func() {
-		l.setStatics(logLevelInfo, m)
-		l.print(m)
-		l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
+	sequenceNumber := atomic.AddUint32(&l.sequenceNumber, 1)
+	l.messageChan <- serviceLogMessage{
+		Write: func() {
+			l.setStatics(logLevelInfo, sequenceNumber, m)
+			l.print(m)
+			l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
+		},
 	}
 }
 
 func (l serviceLog) Warn(m *LogMsg) {
-	l.setStatics(logLevelWarn, m)
+	l.setStatics(
+		logLevelWarn,
+		atomic.AddUint32(&l.sequenceNumber, 1),
+		m)
 
-	// To prevent the situation when early debug and info records will be added
-	// to the source after this error:
-	l.sync()
 	l.sentry.CaptureMessage(m)
-
-	l.messageChan <- func() {
-		l.print(m)
-		l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
+	l.messageChan <- serviceLogMessage{
+		Write: func() {
+			l.print(m)
+			l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
+		},
 	}
 }
 
 func (l serviceLog) Error(m *LogMsg) {
-	l.setStatics(logLevelError, m)
+	l.setStatics(
+		logLevelError,
+		atomic.AddUint32(&l.sequenceNumber, 1),
+		m)
 	m.AddCurrentStack()
 
-	// To prevent the situation when early debug and info records will be added
-	// to the source after this error:
-	l.sync()
 	l.sentry.CaptureMessage(m)
 
-	l.messageChan <- func() {
-		l.print(m)
-		l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
+	l.messageChan <- serviceLogMessage{
+		Write: func() {
+			l.print(m)
+			l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
+		},
 	}
 }
 
 func (l serviceLog) Panic(m *LogMsg) { l.panic(m.GetMessage(), m) }
 
-func (l *serviceLog) setStatics(level logLevel, message *LogMsg) {
-	l.sequenceNumber++
-	message.AddVal("", l.sequenceNumber)
-
+func (l *serviceLog) setStatics(
+	level logLevel,
+	sequenceNumber uint32,
+	message *LogMsg,
+) {
+	message.AddVal("n", sequenceNumber)
 	for k, v := range l.statics {
 		message.AddVal(k, v)
 	}
-
 	message.SetLevel(level)
 }
 
 func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
 	defer l.sync()
 
-	l.setStatics(logLevelPanic, message)
+	l.setStatics(
+		logLevelPanic,
+		atomic.AddUint32(&l.sequenceNumber, 1),
+		message)
 	message.AddCurrentStack()
 	message.AddPanic(panicValue)
 
-	// To prevent the situation when early debug and info records will be added
-	// to the source after this error:
-	l.sync()
-
 	l.sentry.Recover(panicValue, message)
-
 	l.forEachDestination(func(d logDestination) error {
 		return d.WritePanic(message)
 	})
 
-	l.isPanic = true
+	atomic.StoreInt32(&l.isPanic, 1)
 	log.Panicln(message)
 }
 
@@ -289,9 +301,11 @@ func (l serviceLog) print(message *LogMsg) {
 }
 
 func (l serviceLog) sync() {
-	defer l.sentry.Flush()
-	l.messageChan <- nil
-	<-l.syncChan
+	syncChan := make(chan struct{})
+	defer close(syncChan)
+	l.messageChan <- serviceLogMessage{SyncChan: syncChan}
+	l.sentry.Flush()
+	<-syncChan
 }
 
 func (l serviceLog) syncDestinations() {
@@ -343,12 +357,13 @@ func (l serviceLog) runWriter() {
 		if !isOpen {
 			break
 		}
-		if message == nil {
-			l.syncDestinations()
-			l.syncChan <- struct{}{}
-			continue
+		if message.Write != nil {
+			message.Write()
 		}
-		message()
+		if message.SyncChan != nil {
+			l.syncDestinations()
+			message.SyncChan <- struct{}{}
+		}
 	}
 }
 

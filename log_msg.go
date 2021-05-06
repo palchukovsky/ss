@@ -21,7 +21,7 @@ const (
 	logMsgNodeUser                  = "user"
 	logMsgNodeConnection            = "connection"
 	logMsgNodeRequest               = "request"
-	logMsgNodeDumpList              = "dumps"
+	logMsgNodeDumpList              = "dump"
 	logMsgNodeDumpGroupRequestList  = "request"
 	logMsgNodeDumpGroupResponseList = "request"
 	logMsgNodeStack                 = "stack"
@@ -328,6 +328,9 @@ func (lp LogPrefix) AddVal(name string, value interface{}) LogPrefix {
 ////////////////////////////////////////////////////////////////////////////////
 
 func newLogMsgValueTypeName(source interface{}) string {
+	if source == nil {
+		return "nil"
+	}
 	result := ""
 	t := reflect.TypeOf(source)
 	isPtr := t.Kind() == reflect.Ptr

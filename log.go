@@ -87,6 +87,8 @@ func NewLog(
 				"region": config.SS.Service.AWS.Region,
 			},
 		},
+		messageChan: make(chan func(), 10),
+		syncChan:    make(chan struct{}),
 	}
 
 	{
@@ -139,15 +141,22 @@ func NewLog(
 		}
 	}
 
+	go result.runWriter()
+
 	return &result
 }
 
 type serviceLog struct {
-	destinations   []logDestination
-	sentry         sentry
-	isPanic        bool
+	destinations []logDestination
+	sentry       sentry
+
+	isPanic bool
+
 	statics        map[string]interface{}
 	sequenceNumber uint
+
+	messageChan chan func()
+	syncChan    chan struct{}
 }
 
 func (l serviceLog) Started() {
@@ -168,7 +177,6 @@ func (l *serviceLog) CheckExitWithPanicDetails(
 	panicValue interface{},
 	getPanicDetails func() *LogMsg,
 ) {
-	defer l.sentry.Flush()
 	defer l.sync()
 	l.checkPanicWithDetails(panicValue, getPanicDetails)
 }
@@ -194,30 +202,48 @@ func (l *serviceLog) checkPanicWithDetails(
 }
 
 func (l serviceLog) Debug(m *LogMsg) {
-	l.setStatics(logLevelDebug, m)
-	l.print(m)
-	l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
+	l.messageChan <- func() {
+		l.setStatics(logLevelDebug, m)
+		l.print(m)
+		l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
+	}
 }
 
 func (l serviceLog) Info(m *LogMsg) {
-	l.setStatics(logLevelInfo, m)
-	l.print(m)
-	l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
+	l.messageChan <- func() {
+		l.setStatics(logLevelInfo, m)
+		l.print(m)
+		l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
+	}
 }
 
 func (l serviceLog) Warn(m *LogMsg) {
 	l.setStatics(logLevelWarn, m)
-	l.print(m)
+
+	// To prevent the situation when early debug and info records will be added
+	// to the source after this error:
+	l.sync()
 	l.sentry.CaptureMessage(m)
-	l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
+
+	l.messageChan <- func() {
+		l.print(m)
+		l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
+	}
 }
 
 func (l serviceLog) Error(m *LogMsg) {
 	l.setStatics(logLevelError, m)
 	m.AddCurrentStack()
-	l.print(m)
+
+	// To prevent the situation when early debug and info records will be added
+	// to the source after this error:
+	l.sync()
 	l.sentry.CaptureMessage(m)
-	l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
+
+	l.messageChan <- func() {
+		l.print(m)
+		l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
+	}
 }
 
 func (l serviceLog) Panic(m *LogMsg) { l.panic(m.GetMessage(), m) }
@@ -234,12 +260,15 @@ func (l *serviceLog) setStatics(level logLevel, message *LogMsg) {
 }
 
 func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
-	defer l.sentry.Flush()
 	defer l.sync()
 
 	l.setStatics(logLevelPanic, message)
 	message.AddCurrentStack()
 	message.AddPanic(panicValue)
+
+	// To prevent the situation when early debug and info records will be added
+	// to the source after this error:
+	l.sync()
 
 	l.sentry.Recover(panicValue, message)
 
@@ -260,6 +289,12 @@ func (l serviceLog) print(message *LogMsg) {
 }
 
 func (l serviceLog) sync() {
+	defer l.sentry.Flush()
+	l.messageChan <- nil
+	<-l.syncChan
+}
+
+func (l serviceLog) syncDestinations() {
 
 	var wait sync.WaitGroup
 	l.forEachDestination(func(d logDestination) error {
@@ -299,6 +334,21 @@ func (l serviceLog) forEachDestination(callback func(logDestination) error) {
 				d.GetName(),
 				err)
 		}
+	}
+}
+
+func (l serviceLog) runWriter() {
+	for {
+		message, isOpen := <-l.messageChan
+		if !isOpen {
+			break
+		}
+		if message == nil {
+			l.syncDestinations()
+			l.syncChan <- struct{}{}
+			continue
+		}
+		message()
 	}
 }
 

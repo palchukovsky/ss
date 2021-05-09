@@ -194,11 +194,7 @@ func MarshalLogMsgAttrDump(
 	value interface{},
 	destination map[string]interface{},
 ) {
-	marshalValue := logMsgAttrDumpValue{
-		Type:  newLogMsgValueTypeName(value),
-		Value: value,
-	}
-
+	marshalValue := logMsgAttrDumpValue{newLogMsgValueTypeName(value): value}
 	if node, has := destination[logMsgNodeDumpList]; has {
 		destination[logMsgNodeDumpList] = append(
 			node.([]logMsgAttrDumpValue),
@@ -212,10 +208,7 @@ func (a logMsgAttrDump) MarshalLogMsg(destination map[string]interface{}) {
 	MarshalLogMsgAttrDump(a.value, destination)
 }
 
-type logMsgAttrDumpValue struct {
-	Type  string      `json:"type"`
-	Value interface{} `json:"value"`
-}
+type logMsgAttrDumpValue map[string]interface{}
 
 type LogMsgAttrDumpGroup struct {
 	logMsgAttrDump
@@ -233,11 +226,7 @@ func NewLogMsgAttrDumpGroup(
 }
 
 func (a LogMsgAttrDumpGroup) MarshalLogMsg(destination map[string]interface{}) {
-	value := logMsgAttrDumpValue{
-		Type:  newLogMsgValueTypeName(a.value),
-		Value: a.value,
-	}
-
+	value := logMsgAttrDumpValue{newLogMsgValueTypeName(a.value): a.value}
 	if dumps, has := destination[logMsgNodeDumpList]; has {
 		destination := dumps.(map[string]interface{})
 		if node, has := destination[a.groupNode]; has {

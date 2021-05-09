@@ -49,18 +49,10 @@ func NewGateway() Gateway {
 // gateway which has to be closed by method Close after usage.
 func (gateway Gateway) NewSessionGatewaySendSession(
 	log ss.LogSession,
-	queueLen uint,
 ) *gatewaySendSession {
-	if queueLen > 10 {
-		queueLen /= 2
-		if queueLen > 10 {
-			queueLen = 10
-		}
-	}
-
 	result := gatewaySendSession{
 		gateway:     gateway,
-		messageChan: make(chan gatewayMessage, queueLen),
+		messageChan: make(chan gatewayMessage, gatewaySendSessionWarnLevel/10),
 		log:         log,
 	}
 	result.sync.Add(1)
@@ -128,27 +120,20 @@ func (session *gatewaySendSession) Send(
 		Connection: connection,
 		Data:       data,
 	}
-	session.checkAdded()
-}
 
-func (session *gatewaySendSession) SendSerialized(
-	connection ss.ConnectionID,
-	data []byte,
-) {
-	session.messageChan <- gatewayMessage{
-		Connection: connection,
-		Data:       data,
-	}
-	session.checkAdded()
-}
-
-func (session *gatewaySendSession) checkAdded() {
 	if atomic.AddUint32(&session.added, 1)%gatewaySendSessionWarnLevel == 0 {
 		session.log.Warn(
 			ss.NewLogMsg(
 				"already added %d messages to send through gateway...",
 				atomic.LoadUint32(&session.added)))
 	}
+}
+
+func (session *gatewaySendSession) SendSerialized(
+	connection ss.ConnectionID,
+	data []byte,
+) {
+	session.Send(connection, data)
 }
 
 func (session *gatewaySendSession) runSender() {
@@ -177,6 +162,7 @@ func (session *gatewaySendSession) runSender() {
 			session.send(message.Connection, data)
 			doneChan <- struct{}{}
 		}()
+
 		session.sync.Add(1)
 		go func() {
 			select {
@@ -213,10 +199,7 @@ func (session *gatewaySendSession) send(
 			})
 
 	var processed uint32
-
 	if err := request.Send(); err != nil {
-		processed = atomic.AddUint32(&session.skips, 1) +
-			atomic.LoadUint32(&session.sends)
 
 		var goneErr *apigatewaymanagementapi.GoneException
 		if errors.As(err, &goneErr) {
@@ -226,14 +209,16 @@ func (session *gatewaySendSession) send(
 				logMessage.AddDump(string(data))
 			}
 			session.log.Debug(logMessage)
-			return
+		} else {
+			session.log.Error(
+				ss.NewLogMsg("failed to send gateway message").
+					AddErr(err).
+					Add(connection).
+					AddDump(string(data)))
 		}
 
-		session.log.Error(
-			ss.NewLogMsg("failed to send gateway message").
-				AddErr(err).
-				Add(connection).
-				AddDump(string(data)))
+		processed = atomic.AddUint32(&session.skips, 1) +
+			atomic.LoadUint32(&session.sends)
 
 	} else {
 

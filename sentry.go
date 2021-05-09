@@ -47,7 +47,6 @@ func newSentry(
 				event.Tags["build"] = config.SS.Build.ID
 				event.Tags["commit"] = config.SS.Build.Commit
 				event.Tags["builder"] = config.SS.Build.Builder
-				event.Tags["maintainer"] = config.SS.Build.Maintainer
 				event.Tags["aws.region"] = config.SS.Service.AWS.Region
 				return event
 			},

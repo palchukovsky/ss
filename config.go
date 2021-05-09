@@ -17,7 +17,7 @@ import (
 const (
 	// LambdaMaxRunTime is the max lambda run time before a forced kill.
 	// It has leeway to complete all service things.
-	LambdaMaxRunTime = 2501 * time.Millisecond
+	LambdaMaxRunTime = 22751 * time.Millisecond
 	// LambdaMaxRunTimeInclusive is the max inclusive lambda run time before
 	// a forced kill.
 	LambdaMaxRunTimeInclusive = 1501 * time.Millisecond

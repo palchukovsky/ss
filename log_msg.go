@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"runtime"
 	"strings"
 	"time"
@@ -23,7 +22,7 @@ const (
 	logMsgNodeRequest               = "request"
 	logMsgNodeDumpList              = "dump"
 	logMsgNodeDumpGroupRequestList  = "request"
-	logMsgNodeDumpGroupResponseList = "request"
+	logMsgNodeDumpGroupResponseList = "response"
 	logMsgNodeStack                 = "stack"
 	logMsgNodeMarshalError          = "marshalErr"
 )
@@ -355,23 +354,7 @@ func (lp LogPrefix) AddVal(name string, value interface{}) LogPrefix {
 ////////////////////////////////////////////////////////////////////////////////
 
 func newLogMsgValueTypeName(source interface{}) string {
-	if source == nil {
-		return "nil"
-	}
-	result := ""
-	t := reflect.TypeOf(source)
-	isPtr := t.Kind() == reflect.Ptr
-	if isPtr {
-		t = t.Elem()
-	}
-	{
-		pkg := t.PkgPath()
-		if len(pkg) != 0 {
-			result += pkg + "/"
-		}
-	}
-	result += t.Name()
-	return result
+	return fmt.Sprintf("%T", source)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

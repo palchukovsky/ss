@@ -79,10 +79,9 @@ func NewLog(
 			"module":  module,
 			"package": projectPackage,
 			"build": map[string]interface{}{
-				"id":         config.SS.Build.ID,
-				"commit":     config.SS.Build.Commit,
-				"builder":    config.SS.Build.Builder,
-				"maintainer": config.SS.Build.Maintainer,
+				"id":      config.SS.Build.ID,
+				"commit":  config.SS.Build.Commit,
+				"builder": config.SS.Build.Builder,
 			},
 			"aws": map[string]interface{}{
 				"region": config.SS.Service.AWS.Region,

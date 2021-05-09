@@ -153,7 +153,7 @@ func (service *service) StartLambda() {
 
 		if observers == service.lambdaTimeoutObservers {
 			// Lambda isn't finished yet.
-			service.Log().Error(NewLogMsg("lambda timeout"))
+			service.Log().Error(NewLogMsg("%s lambda timeout", service.Name()))
 		}
 
 		sync.Wait()

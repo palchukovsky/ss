@@ -97,9 +97,10 @@ type service struct {
 	build   Build
 
 	lambdaTimeoutMutex     sync.Mutex
-	lambdaTimeoutObservers []chan<- time.Time
-	lambdaTimeout          <-chan time.Time
-	lambdaTimeoutExceeded  *time.Time
+	lambdaTimeoutObservers *struct {
+		Chans       []chan<- time.Time
+		TimeoutTime *time.Time
+	}
 }
 
 func (service *service) Log() Log              { return service.log }
@@ -109,35 +110,44 @@ func (service *service) Name() string          { return service.name }
 func (service *service) Product() string       { return service.product }
 
 func (service *service) StartLambda() {
+	timeout := time.After(LambdaMaxRunTime)
+	observers := &struct {
+		Chans       []chan<- time.Time
+		TimeoutTime *time.Time
+	}{
+		Chans: []chan<- time.Time{},
+	}
+
 	service.lambdaTimeoutMutex.Lock()
-	service.lambdaTimeoutObservers = []chan<- time.Time{}
-	observers := service.lambdaTimeoutObservers
-	service.lambdaTimeout = time.After(LambdaMaxRunTime * time.Millisecond)
-	service.lambdaTimeoutExceeded = nil
+	service.lambdaTimeoutObservers = observers
 	service.lambdaTimeoutMutex.Unlock()
+
 	go func() {
-		value := <-service.lambdaTimeout
+		value := <-timeout
 		service.lambdaTimeoutMutex.Lock()
-		for _, observerChan := range observers {
+		defer service.lambdaTimeoutMutex.Unlock()
+		// observers.Chans could be already not the same as not service has, but
+		// mutex has to be the same as it could be the same also.
+		for _, observerChan := range observers.Chans {
 			observerChan <- value
 		}
-		service.lambdaTimeoutExceeded = &value
-		service.lambdaTimeoutMutex.Unlock()
+		observers.TimeoutTime = &value
 	}()
+
 }
 
 func (service *service) GetLambdaTimeout() <-chan time.Time {
-	result := make(chan time.Time)
+	result := make(chan time.Time, 1)
 	service.lambdaTimeoutMutex.Lock()
 	// If no timer - lambda has never started, so there is no any run time limit.
-	if service.lambdaTimeout != nil {
-		if service.lambdaTimeoutExceeded == nil {
-			service.lambdaTimeoutObservers = append(
-				service.lambdaTimeoutObservers,
+	if service.lambdaTimeoutObservers != nil {
+		if service.lambdaTimeoutObservers.TimeoutTime == nil {
+			service.lambdaTimeoutObservers.Chans = append(
+				service.lambdaTimeoutObservers.Chans,
 				result)
 		} else {
-			time := *service.lambdaTimeoutExceeded
-			go func() { result <- time }()
+			timeoutTime := *service.lambdaTimeoutObservers.TimeoutTime
+			go func() { result <- timeoutTime }()
 		}
 	}
 	service.lambdaTimeoutMutex.Unlock()

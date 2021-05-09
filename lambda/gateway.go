@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -52,7 +53,7 @@ func (gateway Gateway) NewSessionGatewaySendSession(
 ) *gatewaySendSession {
 	result := gatewaySendSession{
 		gateway:     gateway,
-		messageChan: make(chan gatewayMessage, gatewaySendSessionWarnLevel/10),
+		messageChan: make(chan gatewayMessage, gatewaySendSessionWarnLevel),
 		log:         log,
 	}
 	result.sync.Add(1)
@@ -165,20 +166,25 @@ func (session *gatewaySendSession) runSender() {
 
 		session.sync.Add(1)
 		go func() {
+			defer session.sync.Done()
+
 			select {
 			case <-doneChan:
+				return
+			case <-time.After(ss.LambdaMaxRunTimeInclusive):
 				break
 			case <-ss.S.GetLambdaTimeout():
-				logMessage := ss.NewLogMsg("gateway message sending timeout").
-					Add(message.Connection)
-				if isSerialized {
-					logMessage.AddDump(string(data))
-				} else {
-					logMessage.AddDump(message.Data)
-				}
-				session.log.Warn(logMessage)
+				break
 			}
-			session.sync.Done()
+
+			logMessage := ss.NewLogMsg("gateway message sending timeout").
+				Add(message.Connection)
+			if isSerialized {
+				logMessage.AddDump(string(data))
+			} else {
+				logMessage.AddDump(message.Data)
+			}
+			session.log.Warn(logMessage)
 		}()
 
 	}

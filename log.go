@@ -88,7 +88,7 @@ func NewLog(
 				"region": config.SS.Service.AWS.Region,
 			},
 		},
-		messageChan: make(chan serviceLogMessage, 10),
+		messageChan: make(chan serviceLogMessage, 100),
 	}
 
 	{
@@ -140,6 +140,8 @@ func NewLog(
 			result.destinations = append(result.destinations, papertrail)
 		}
 	}
+
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	go result.runWriter()
 
@@ -291,7 +293,6 @@ func (l *serviceLog) print(message *LogMsg) {
 
 func (l *serviceLog) sync() {
 	syncChan := make(chan struct{})
-	defer close(syncChan)
 	l.messageChan <- serviceLogMessage{SyncChan: syncChan}
 	l.sentry.Flush()
 	<-syncChan

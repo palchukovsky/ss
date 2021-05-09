@@ -147,6 +147,8 @@ func NewLog(
 }
 
 type serviceLog struct {
+	NoCopy
+
 	destinations []logDestination
 	sentry       sentry
 
@@ -163,7 +165,7 @@ type serviceLogMessage struct {
 	SyncChan chan<- struct{}
 }
 
-func (l serviceLog) Started() {
+func (l *serviceLog) Started() {
 	l.Debug(NewLogMsg("started"))
 }
 
@@ -192,7 +194,7 @@ func (l *serviceLog) checkPanic(
 	l.panic(panicValue, getPanicDetails())
 }
 
-func (l serviceLog) Debug(m *LogMsg) {
+func (l *serviceLog) Debug(m *LogMsg) {
 	sequenceNumber := atomic.AddUint32(&l.sequenceNumber, 1)
 	l.messageChan <- serviceLogMessage{
 		Write: func() {
@@ -203,7 +205,7 @@ func (l serviceLog) Debug(m *LogMsg) {
 	}
 }
 
-func (l serviceLog) Info(m *LogMsg) {
+func (l *serviceLog) Info(m *LogMsg) {
 	sequenceNumber := atomic.AddUint32(&l.sequenceNumber, 1)
 	l.messageChan <- serviceLogMessage{
 		Write: func() {
@@ -214,7 +216,7 @@ func (l serviceLog) Info(m *LogMsg) {
 	}
 }
 
-func (l serviceLog) Warn(m *LogMsg) {
+func (l *serviceLog) Warn(m *LogMsg) {
 	l.setStatics(
 		logLevelWarn,
 		atomic.AddUint32(&l.sequenceNumber, 1),
@@ -229,7 +231,7 @@ func (l serviceLog) Warn(m *LogMsg) {
 	}
 }
 
-func (l serviceLog) Error(m *LogMsg) {
+func (l *serviceLog) Error(m *LogMsg) {
 	l.setStatics(
 		logLevelError,
 		atomic.AddUint32(&l.sequenceNumber, 1),
@@ -246,7 +248,7 @@ func (l serviceLog) Error(m *LogMsg) {
 	}
 }
 
-func (l serviceLog) Panic(m *LogMsg) { l.panic(m.GetMessage(), m) }
+func (l *serviceLog) Panic(m *LogMsg) { l.panic(m.GetMessage(), m) }
 
 func (l *serviceLog) setStatics(
 	level logLevel,
@@ -279,7 +281,7 @@ func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
 	log.Panicln(message)
 }
 
-func (l serviceLog) print(message *LogMsg) {
+func (l *serviceLog) print(message *LogMsg) {
 	log.Printf(
 		"%s: %s %s",
 		message.GetLevel(),
@@ -287,7 +289,7 @@ func (l serviceLog) print(message *LogMsg) {
 		message.ConvertAttributesToJSON())
 }
 
-func (l serviceLog) sync() {
+func (l *serviceLog) sync() {
 	syncChan := make(chan struct{})
 	defer close(syncChan)
 	l.messageChan <- serviceLogMessage{SyncChan: syncChan}
@@ -295,7 +297,7 @@ func (l serviceLog) sync() {
 	<-syncChan
 }
 
-func (l serviceLog) syncDestinations() {
+func (l *serviceLog) syncDestinations() {
 
 	var wait sync.WaitGroup
 	l.forEachDestination(func(d logDestination) error {
@@ -325,7 +327,7 @@ func (l serviceLog) syncDestinations() {
 	}
 }
 
-func (l serviceLog) forEachDestination(callback func(logDestination) error) {
+func (l *serviceLog) forEachDestination(callback func(logDestination) error) {
 	for _, d := range l.destinations {
 		if err := callback(d); err != nil {
 			log.Printf(
@@ -336,7 +338,7 @@ func (l serviceLog) forEachDestination(callback func(logDestination) error) {
 	}
 }
 
-func (l serviceLog) runWriter() {
+func (l *serviceLog) runWriter() {
 	for {
 		message, isOpen := <-l.messageChan
 		if !isOpen {

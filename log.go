@@ -202,7 +202,9 @@ func (l *serviceLog) Debug(m *LogMsg) {
 		Write: func() {
 			l.setStatics(logLevelDebug, sequenceNumber, m)
 			l.print(m)
-			l.forEachDestination(func(d logDestination) error { return d.WriteDebug(m) })
+			l.forEachDestination(func(d logDestination) error {
+				return d.WriteDebug(m)
+			})
 		},
 	}
 }
@@ -213,7 +215,9 @@ func (l *serviceLog) Info(m *LogMsg) {
 		Write: func() {
 			l.setStatics(logLevelInfo, sequenceNumber, m)
 			l.print(m)
-			l.forEachDestination(func(d logDestination) error { return d.WriteInfo(m) })
+			l.forEachDestination(func(d logDestination) error {
+				return d.WriteInfo(m)
+			})
 		},
 	}
 }
@@ -225,10 +229,13 @@ func (l *serviceLog) Warn(m *LogMsg) {
 		m)
 
 	l.sentry.CaptureMessage(m)
+
 	l.messageChan <- serviceLogMessage{
 		Write: func() {
 			l.print(m)
-			l.forEachDestination(func(d logDestination) error { return d.WriteWarn(m) })
+			l.forEachDestination(func(d logDestination) error {
+				return d.WriteWarn(m)
+			})
 		},
 	}
 }
@@ -245,7 +252,9 @@ func (l *serviceLog) Error(m *LogMsg) {
 	l.messageChan <- serviceLogMessage{
 		Write: func() {
 			l.print(m)
-			l.forEachDestination(func(d logDestination) error { return d.WriteError(m) })
+			l.forEachDestination(func(d logDestination) error {
+				return d.WriteError(m)
+			})
 		},
 	}
 }

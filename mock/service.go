@@ -118,6 +118,18 @@ func (mr *MockServiceMockRecorder) StartLambda() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartLambda", reflect.TypeOf((*MockService)(nil).StartLambda))
 }
 
+// CompleteLambda mocks base method
+func (m *MockService) CompleteLambda(panicValue interface{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CompleteLambda", panicValue)
+}
+
+// CompleteLambda indicates an expected call of CompleteLambda
+func (mr *MockServiceMockRecorder) CompleteLambda(panicValue interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteLambda", reflect.TypeOf((*MockService)(nil).CompleteLambda), panicValue)
+}
+
 // GetLambdaTimeout mocks base method
 func (m *MockService) GetLambdaTimeout() <-chan time.Time {
 	m.ctrl.T.Helper()

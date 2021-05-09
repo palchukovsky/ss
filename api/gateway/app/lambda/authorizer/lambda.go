@@ -62,8 +62,8 @@ var authHeaderNameLower = strings.ToLower(authHeaderName)
 var policy events.APIGatewayCustomAuthorizerPolicy
 
 func handle(ctx context.Context, request request) (response, error) {
-	defer func() { ss.S.Log().CheckExit(recover()) }()
 	ss.S.StartLambda()
+	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	accessToken, hasAccessToken := request.Headers[authHeaderName]
 	if !hasAccessToken {

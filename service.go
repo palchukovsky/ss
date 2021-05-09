@@ -31,6 +31,7 @@ type Service interface {
 	Build() Build
 
 	StartLambda()
+	CompleteLambda(panicValue interface{})
 	GetLambdaTimeout() <-chan time.Time
 
 	NewBuildEntityName(name string) string
@@ -118,22 +119,72 @@ func (service *service) StartLambda() {
 		Chans: []chan<- time.Time{},
 	}
 
-	service.lambdaTimeoutMutex.Lock()
-	service.lambdaTimeoutObservers = observers
-	service.lambdaTimeoutMutex.Unlock()
+	{
+		service.lambdaTimeoutMutex.Lock()
+		if service.lambdaTimeoutObservers == nil {
+			service.lambdaTimeoutObservers = observers
+		} else {
+			observers = nil
+		}
+		service.lambdaTimeoutMutex.Unlock()
+	}
+
+	if observers == nil {
+		service.Log().Panic(NewLogMsg("previous lambda isn't completed"))
+	}
 
 	go func() {
+
 		value := <-timeout
+
 		service.lambdaTimeoutMutex.Lock()
 		defer service.lambdaTimeoutMutex.Unlock()
 		// observers.Chans could be already not the same as not service has, but
 		// mutex has to be the same as it could be the same also.
-		for _, observerChan := range observers.Chans {
-			observerChan <- value
+
+		var sync sync.WaitGroup
+		sync.Add(1)
+		go func() {
+			for _, observerChan := range observers.Chans {
+				observerChan <- value
+			}
+			sync.Done()
+		}()
+
+		if observers == service.lambdaTimeoutObservers {
+			// Lambda isn't finished yet.
+			service.Log().Error(NewLogMsg("lambda timeout"))
 		}
+
+		sync.Wait()
+
 		observers.TimeoutTime = &value
+
 	}()
 
+}
+
+func (service *service) CompleteLambda(panicValue interface{}) {
+	service.lambdaTimeoutMutex.Lock()
+
+	if service.lambdaTimeoutObservers == nil {
+		service.lambdaTimeoutMutex.Unlock()
+		logMessage := NewLogMsg("lambda isn't started")
+		if panicValue != nil {
+			service.Log().Error(logMessage)
+			service.log.CheckExit(panicValue)
+			return
+		}
+		service.Log().Panic(logMessage)
+		return
+	}
+
+	service.lambdaTimeoutObservers.Chans = nil
+	service.lambdaTimeoutObservers = nil
+
+	service.lambdaTimeoutMutex.Unlock()
+
+	service.log.CheckExit(panicValue)
 }
 
 func (service *service) GetLambdaTimeout() <-chan time.Time {

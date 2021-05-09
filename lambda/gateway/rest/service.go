@@ -39,8 +39,8 @@ func (service service) Start() {
 }
 
 func (service service) handle(request awsRequest) (awsResponse, error) {
-	defer func() { ss.S.Log().CheckExit(recover()) }()
 	ss.S.StartLambda()
+	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	lambdaRequest := newRequest(request, service.Gateway, service.context)
 	defer func() {

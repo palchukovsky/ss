@@ -22,8 +22,8 @@ type service struct{ Lambda }
 func (service *service) Start() { awslambda.Start(service.handle) }
 
 func (service *service) handle(event *events.DynamoDBEvent) error {
-	defer func() { ss.S.Log().CheckExit(recover()) }()
 	ss.S.StartLambda()
+	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	if len(event.Records) == 0 {
 		ss.S.Log().Warn(ss.NewLogMsg("empty event list").AddRequest(*event))

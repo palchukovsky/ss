@@ -33,8 +33,8 @@ type service struct {
 func (service service) Start() { awslambda.Start(service.handle) }
 
 func (service service) handle(request awsResquest) (awsResponse, error) {
-	defer func() { ss.S.Log().CheckExit(recover()) }()
 	ss.S.StartLambda()
+	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	lambdaRequest, err := newRequest(request, service.Gateway)
 	if err != nil {

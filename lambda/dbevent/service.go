@@ -39,6 +39,10 @@ func (service *service) handle(event *events.DynamoDBEvent) error {
 			})
 	}()
 
+	if ss.S.Config().IsExtraLogEnabled() {
+		ss.S.Log().Debug(ss.NewLogMsg("event").AddRequest(*event))
+	}
+
 	log.Debug(ss.NewLogMsg("%d records", len(event.Records)))
 
 	request := newRequest(event.Records, log)

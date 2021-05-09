@@ -161,7 +161,7 @@ type serviceLog struct {
 
 type serviceLogMessage struct {
 	Write    func()
-	SyncChan chan struct{}
+	SyncChan chan<- struct{}
 }
 
 func (l serviceLog) Started() {

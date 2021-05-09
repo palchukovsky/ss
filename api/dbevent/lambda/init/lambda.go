@@ -48,13 +48,11 @@ func (lambda lambda) execute(
 		return err
 	}
 
-	isSent, err := lambda.gateway.SendSerialized(connection.ID, lambda.message)
-	if err != nil {
-		return err
-	}
-	if !isSent {
-		request.Log().Debug(ss.NewLogMsg("already disconnected").Add(connection.ID))
-	}
+	gateway := lambda.gateway.NewSessionGatewaySendSession(request.Log())
+	gateway.SendSerialized(connection.ID, lambda.message)
+	// Init isn't worry is dbevent executed or no, so it doesn't check stat,
+	// just waits until the message will be sent:
+	gateway.CloseAndGetStat()
 
 	return nil
 }

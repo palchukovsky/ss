@@ -12,6 +12,8 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -27,6 +29,9 @@ type Service interface {
 	Name() string
 	Config() ServiceConfig
 	Build() Build
+
+	StartLambda()
+	GetLambdaTimeout() <-chan time.Time
 
 	NewBuildEntityName(name string) string
 
@@ -75,7 +80,7 @@ func NewService(
 		}
 	}
 
-	return service{
+	return &service{
 		name:    name,
 		product: product,
 		config:  config.SS.Service,
@@ -90,22 +95,63 @@ type service struct {
 	config  ServiceConfig
 	log     Log
 	build   Build
+
+	lambdaTimeoutMutex     sync.Mutex
+	lambdaTimeoutObservers []chan<- time.Time
+	lambdaTimeout          <-chan time.Time
+	lambdaTimeoutExceeded  *time.Time
 }
 
-func (service service) Log() Log              { return service.log }
-func (service service) Config() ServiceConfig { return service.config }
-func (service service) Build() Build          { return service.build }
-func (service service) Name() string          { return service.name }
-func (service service) Product() string       { return service.product }
+func (service *service) Log() Log              { return service.log }
+func (service *service) Config() ServiceConfig { return service.config }
+func (service *service) Build() Build          { return service.build }
+func (service *service) Name() string          { return service.name }
+func (service *service) Product() string       { return service.product }
 
-func (service service) NewBuildEntityName(name string) string {
+func (service *service) StartLambda() {
+	service.lambdaTimeoutMutex.Lock()
+	service.lambdaTimeoutObservers = []chan<- time.Time{}
+	observers := service.lambdaTimeoutObservers
+	service.lambdaTimeout = time.After(LambdaMaxRunTime * time.Millisecond)
+	service.lambdaTimeoutExceeded = nil
+	service.lambdaTimeoutMutex.Unlock()
+	go func() {
+		value := <-service.lambdaTimeout
+		service.lambdaTimeoutMutex.Lock()
+		for _, observerChan := range observers {
+			observerChan <- value
+		}
+		service.lambdaTimeoutExceeded = &value
+		service.lambdaTimeoutMutex.Unlock()
+	}()
+}
+
+func (service *service) GetLambdaTimeout() <-chan time.Time {
+	result := make(chan time.Time)
+	service.lambdaTimeoutMutex.Lock()
+	// If no timer - lambda has never started, so there is no any run time limit.
+	if service.lambdaTimeout != nil {
+		if service.lambdaTimeoutExceeded == nil {
+			service.lambdaTimeoutObservers = append(
+				service.lambdaTimeoutObservers,
+				result)
+		} else {
+			time := *service.lambdaTimeoutExceeded
+			go func() { result <- time }()
+		}
+	}
+	service.lambdaTimeoutMutex.Unlock()
+	return result
+}
+
+func (service *service) NewBuildEntityName(name string) string {
 	return fmt.Sprintf("%s_%s_%s",
 		service.Product(),
 		service.Build().Version,
 		name)
 }
 
-func (service service) NewAWSConfig() aws.Config {
+func (service *service) NewAWSConfig() aws.Config {
 	result, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		service.Log().Panic(NewLogMsg(`failed to load AWS config`).AddErr(err))
@@ -113,7 +159,7 @@ func (service service) NewAWSConfig() aws.Config {
 	return result
 }
 
-func (service service) NewAWSSessionV1() *session.Session {
+func (service *service) NewAWSSessionV1() *session.Session {
 	result, err := session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	})

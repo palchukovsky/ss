@@ -63,6 +63,7 @@ var policy events.APIGatewayCustomAuthorizerPolicy
 
 func handle(ctx context.Context, request request) (response, error) {
 	defer func() { ss.S.Log().CheckExit(recover()) }()
+	ss.S.StartLambda()
 
 	accessToken, hasAccessToken := request.Headers[authHeaderName]
 	if !hasAccessToken {

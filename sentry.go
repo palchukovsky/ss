@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"time"
 
 	sentryclient "github.com/getsentry/sentry-go"
 )
@@ -105,7 +104,7 @@ func (s sentryConnect) Recover(panicValue interface{}, message *LogMsg) {
 }
 
 func (sentryConnect) Flush() {
-	if !sentryclient.Flush(2750 * time.Millisecond) {
+	if !sentryclient.Flush(LambdaMaxRunTimeInclusive) {
 		log.Println("Not all Sentry records were flushed, timeout was reached.")
 	}
 }

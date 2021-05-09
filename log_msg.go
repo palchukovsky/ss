@@ -111,13 +111,15 @@ func (m LogMsg) MarshalMap() map[string]interface{} {
 }
 
 func (m LogMsg) ConvertToJSON() []byte {
-	result, err := json.Marshal(m.MarshalMap())
+	value := m.MarshalMap()
+	result, err := json.Marshal(value)
 	if err != nil {
 		result = []byte(
 			fmt.Sprintf(
-				`{%q:%q}`,
+				`{%q:{"err":%q,"value":%q}}`,
 				logMsgNodeMarshalError,
-				fmt.Sprintf("%v", err)))
+				fmt.Sprintf("%v", err),
+				fmt.Sprintf("%v", value)))
 	}
 	return result
 }
@@ -143,13 +145,15 @@ func (m LogMsg) MarshalAttributesMap() map[string]interface{} {
 }
 
 func (m LogMsg) ConvertAttributesToJSON() []byte {
-	result, err := json.Marshal(m.MarshalAttributesMap())
+	value := m.MarshalAttributesMap()
+	result, err := json.Marshal(value)
 	if err != nil {
 		result = []byte(
 			fmt.Sprintf(
-				`{%q:%q}`,
+				`{%q:{"err":%q,"value":%q}}`,
 				logMsgNodeMarshalError,
-				fmt.Sprintf("%v", err)))
+				fmt.Sprintf("%v", err),
+				fmt.Sprintf("%#v", value)))
 	}
 	return result
 }

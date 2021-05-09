@@ -7,7 +7,6 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // Log describes product log interface.
@@ -318,12 +317,10 @@ func (l serviceLog) syncDestinations() {
 		doneSignalChan <- struct{}{}
 	}()
 
-	// Common timeout for all logs, as lambda has runtime time limit.
-	timeoutChan := time.After(2750 * time.Millisecond)
 	select {
 	case <-doneSignalChan:
 		break
-	case <-timeoutChan:
+	case <-S.GetLambdaTimeout():
 		l.Error(NewLogMsg("log sync timeout"))
 	}
 }

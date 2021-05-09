@@ -9,8 +9,20 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
+////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// LambdaMaxRunTime is the max lambda run time before a forced kill.
+	LambdaMaxRunTime = 2850 * time.Millisecond
+	// LambdaMaxRunTimeInclusive is the max inclusive lambda run time before
+	// a forced kill. It has small leeway to complete all service things.
+	LambdaMaxRunTimeInclusive = 2750 * time.Millisecond
+)
+
+////////////////////////////////////////////////////////////////////////////////
 type Config struct {
 	SS struct {
 		Service ServiceConfig `json:"service"`

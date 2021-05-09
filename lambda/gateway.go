@@ -49,10 +49,18 @@ func NewGateway() Gateway {
 // gateway which has to be closed by method Close after usage.
 func (gateway Gateway) NewSessionGatewaySendSession(
 	log ss.LogSession,
+	queueLen uint,
 ) *gatewaySendSession {
+	if queueLen > 10 {
+		queueLen /= 2
+		if queueLen > 10 {
+			queueLen = 10
+		}
+	}
+
 	result := gatewaySendSession{
 		gateway:     gateway,
-		messageChan: make(chan gatewayMessage),
+		messageChan: make(chan gatewayMessage, queueLen),
 		log:         log,
 	}
 	result.sync.Add(1)
@@ -76,6 +84,8 @@ func (gateway Gateway) Serialize(data interface{}) ([]byte, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+const gatewaySendSessionWarnLevel = 100
+
 type gatewaySendSession struct {
 	gateway Gateway
 	log     ss.LogSession
@@ -83,6 +93,7 @@ type gatewaySendSession struct {
 
 	messageChan chan gatewayMessage
 
+	added uint32
 	sends uint32
 	skips uint32
 }
@@ -95,8 +106,17 @@ type gatewayMessage struct {
 // CloseAndGetStat closes the session and returns number of sent messages
 // and number of skipped (by errors or disconnection).
 func (session *gatewaySendSession) CloseAndGetStat() (uint32, uint32) {
-	close(session.messageChan)
+	session.messageChan <- gatewayMessage{}
 	session.sync.Wait()
+
+	if session.sends+session.skips > gatewaySendSessionWarnLevel {
+		session.log.Warn(ss.NewLogMsg(
+			"processed %d gateway messages, %d sent, %d skipped",
+			session.sends+session.skips,
+			session.sends,
+			session.skips))
+	}
+
 	return session.sends, session.skips
 }
 
@@ -108,6 +128,7 @@ func (session *gatewaySendSession) Send(
 		Connection: connection,
 		Data:       data,
 	}
+	session.checkAdded()
 }
 
 func (session *gatewaySendSession) SendSerialized(
@@ -118,14 +139,24 @@ func (session *gatewaySendSession) SendSerialized(
 		Connection: connection,
 		Data:       data,
 	}
+	session.checkAdded()
+}
+
+func (session *gatewaySendSession) checkAdded() {
+	if atomic.AddUint32(&session.added, 1)%gatewaySendSessionWarnLevel == 0 {
+		session.log.Warn(
+			ss.NewLogMsg(
+				"already added %d messages to send through gateway...",
+				atomic.LoadUint32(&session.added)))
+	}
 }
 
 func (session *gatewaySendSession) runSender() {
 	defer session.sync.Done()
 
 	for {
-		message, isOpen := <-session.messageChan
-		if !isOpen {
+		message := <-session.messageChan
+		if len(message.Connection) == 0 {
 			break
 		}
 
@@ -181,8 +212,11 @@ func (session *gatewaySendSession) send(
 				Data:         data,
 			})
 
+	var processed uint32
+
 	if err := request.Send(); err != nil {
-		atomic.AddUint32(&session.skips, 1)
+		processed = atomic.AddUint32(&session.skips, 1) +
+			atomic.LoadUint32(&session.sends)
 
 		var goneErr *apigatewaymanagementapi.GoneException
 		if errors.As(err, &goneErr) {
@@ -201,14 +235,33 @@ func (session *gatewaySendSession) send(
 				Add(connection).
 				AddDump(string(data)))
 
-		return
+	} else {
+
+		if ss.S.Config().IsExtraLogEnabled() {
+			session.log.Debug(
+				ss.NewLogMsg("sent").Add(connection).AddDump(string(data)))
+		}
+
+		processed = atomic.AddUint32(&session.sends, 1) +
+			atomic.LoadUint32(&session.skips)
+
 	}
 
-	if ss.S.Config().IsExtraLogEnabled() {
-		session.log.Debug(
-			ss.NewLogMsg("sent").Add(connection).AddDump(string(data)))
+	if processed%gatewaySendSessionWarnLevel == 0 {
+		sends := atomic.LoadUint32(&session.sends)
+		skips := atomic.LoadUint32(&session.skips)
+		total := sends + skips
+		logMessage := ss.NewLogMsg(
+			"already processed %d gateway messages, %d sent, %d skipped...",
+			total,
+			sends,
+			skips)
+		if total <= gatewaySendSessionWarnLevel {
+			session.log.Info(logMessage)
+		} else {
+			session.log.Warn(logMessage)
+		}
 	}
-	atomic.AddUint32(&session.sends, 1)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

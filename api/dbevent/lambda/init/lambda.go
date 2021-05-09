@@ -48,7 +48,7 @@ func (lambda lambda) execute(
 		return err
 	}
 
-	gateway := lambda.gateway.NewSessionGatewaySendSession(request.Log())
+	gateway := lambda.gateway.NewSessionGatewaySendSession(request.Log(), 1)
 	gateway.SendSerialized(connection.ID, lambda.message)
 	// Init isn't worry is dbevent executed or no, so it doesn't check stat,
 	// just waits until the message will be sent:

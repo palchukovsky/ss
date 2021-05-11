@@ -271,8 +271,10 @@ func NewStream(lambda string) Stream { return Stream{lambda: lambda} }
 type StreamViewType string
 
 const (
-	StreamViewTypeFull StreamViewType = ddb.StreamViewTypeNewAndOldImages
 	StreamViewTypeNone StreamViewType = ddb.StreamViewTypeKeysOnly
+	StreamViewTypePrev StreamViewType = ddb.StreamViewTypeOldImage
+	StreamViewTypeNew  StreamViewType = ddb.StreamViewTypeNewImage
+	StreamViewTypeFull StreamViewType = ddb.StreamViewTypeNewAndOldImages
 )
 
 ////////////////////////////////////////////////////////////////////////////////

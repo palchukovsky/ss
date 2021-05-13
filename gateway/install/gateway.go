@@ -16,6 +16,7 @@ type Gateway interface {
 	Log() ss.ServiceLogStream
 
 	Create(Client) error
+	Delete(Client) error
 }
 
 // NewGateway creates new gateway instance.
@@ -127,6 +128,20 @@ func (gateway gateway) Create(client Client) error {
 				commad.GetName(),
 				err)
 		}
+	}
+	return nil
+}
+
+func (gateway gateway) Delete(client Client) error {
+	gatewayClient := client.NewGatewayClient(gateway.id)
+	if err := gatewayClient.DeleteRoutes(); err != nil {
+		return err
+	}
+	if err := gatewayClient.DeleteAuthorizers(); err != nil {
+		return err
+	}
+	if err := gatewayClient.DeleteModels(); err != nil {
+		return err
 	}
 	return nil
 }

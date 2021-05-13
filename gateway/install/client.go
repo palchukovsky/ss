@@ -48,14 +48,20 @@ type GatewayRoute struct {
 
 type GatewayClient interface {
 	CreateModel(name, schema string) (GatewayModel, error)
+	DeleteModels() error
+
 	CreateRoute(
 		name string,
 		lambda string,
 		model *GatewayModel,
 		auth *GatewayAuthorizer,
 	) (GatewayRoute, error)
+	DeleteRoutes() error
+
 	CreateRouteResponse(GatewayRoute) error
+
 	CreateAuthorizer(name string) (GatewayAuthorizer, error)
+	DeleteAuthorizers() error
 }
 
 type gatewayClient struct {
@@ -77,6 +83,24 @@ func (client gatewayClient) CreateModel(
 		return "", err
 	}
 	return GatewayModel(name), nil
+}
+
+func (client gatewayClient) DeleteModels() error {
+	getInput := apigatewayv2.GetModelsInput{ApiId: client.id}
+	getOutput, err := client.client.GetModels(context.TODO(), &getInput)
+	if err != nil {
+		return err
+	}
+	for _, model := range getOutput.Items {
+		input := apigatewayv2.DeleteModelInput{
+			ApiId:   client.id,
+			ModelId: model.ModelId,
+		}
+		if _, err := client.client.DeleteModel(context.TODO(), &input); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (client gatewayClient) CreateRoute(
@@ -134,6 +158,97 @@ func (client gatewayClient) CreateRoute(
 
 }
 
+func (client gatewayClient) DeleteRoutes() error {
+	{
+		getInput := apigatewayv2.GetRoutesInput{ApiId: client.id}
+		getOutput, err := client.client.GetRoutes(context.TODO(), &getInput)
+		if err != nil {
+			return err
+		}
+		for _, route := range getOutput.Items {
+			{
+				getInput := apigatewayv2.GetRouteResponsesInput{
+					ApiId:   client.id,
+					RouteId: route.RouteId,
+				}
+				getOutput, err := client.client.GetRouteResponses(
+					context.TODO(),
+					&getInput)
+				if err != nil {
+					return err
+				}
+				for _, response := range getOutput.Items {
+					input := apigatewayv2.DeleteRouteResponseInput{
+						ApiId:           client.id,
+						RouteId:         route.RouteId,
+						RouteResponseId: response.RouteResponseId,
+					}
+					_, err := client.client.DeleteRouteResponse(context.TODO(), &input)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			{
+				input := apigatewayv2.DeleteRouteInput{
+					ApiId:   client.id,
+					RouteId: route.RouteId,
+				}
+				_, err := client.client.DeleteRoute(context.TODO(), &input)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		getInput := apigatewayv2.GetIntegrationsInput{ApiId: client.id}
+		getOutput, err := client.client.GetIntegrations(context.TODO(), &getInput)
+		if err != nil {
+			return err
+		}
+		for _, integration := range getOutput.Items {
+			{
+				getInput := apigatewayv2.GetIntegrationResponsesInput{
+					ApiId:         client.id,
+					IntegrationId: integration.IntegrationId,
+				}
+				getOutput, err := client.client.GetIntegrationResponses(
+					context.TODO(),
+					&getInput)
+				if err != nil {
+					return err
+				}
+				for _, response := range getOutput.Items {
+					input := apigatewayv2.DeleteIntegrationResponseInput{
+						ApiId:                 client.id,
+						IntegrationId:         integration.IntegrationId,
+						IntegrationResponseId: response.IntegrationResponseId,
+					}
+					_, err := client.client.DeleteIntegrationResponse(
+						context.TODO(),
+						&input)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			{
+				input := apigatewayv2.DeleteIntegrationInput{
+					ApiId:         client.id,
+					IntegrationId: integration.IntegrationId,
+				}
+				_, err := client.client.DeleteIntegration(context.TODO(), &input)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (client gatewayClient) CreateRouteResponse(route GatewayRoute) error {
 
 	{
@@ -186,6 +301,25 @@ func (client gatewayClient) CreateAuthorizer(
 		return "", err
 	}
 	return GatewayAuthorizer(aws.ToString(output.AuthorizerId)), nil
+}
+
+func (client gatewayClient) DeleteAuthorizers() error {
+	getInput := apigatewayv2.GetAuthorizersInput{ApiId: client.id}
+	getOutput, err := client.client.GetAuthorizers(context.TODO(), &getInput)
+	if err != nil {
+		return err
+	}
+	for _, authorizerId := range getOutput.Items {
+		input := apigatewayv2.DeleteAuthorizerInput{
+			ApiId:        client.id,
+			AuthorizerId: authorizerId.AuthorizerId,
+		}
+		_, err := client.client.DeleteAuthorizer(context.TODO(), &input)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

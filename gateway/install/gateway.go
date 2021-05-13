@@ -35,6 +35,21 @@ func NewGateway(
 			err)
 	}
 
+	{
+		connect, err := newWSConnectCommand(log)
+		if err != nil {
+			log.Panic(`Failed to create API command "connect": "%v"`, name, err)
+		}
+		commands = append(commands, connect)
+	}
+	{
+		disconnect, err := newWSDesconnectCommand(log)
+		if err != nil {
+			log.Panic(`Failed to create API command "discconnect": "%v"`, name, err)
+		}
+		commands = append(commands, disconnect)
+	}
+
 	return gateway{
 		id:       id,
 		name:     name,

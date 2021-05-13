@@ -19,9 +19,6 @@ func ForEachGateway(
 	log.Debug("Processing each gateway...")
 
 	gateways := installer.NewGateways(log)
-	if id := ss.S.Config().AWS.Gateway.Auth.ID; id != "" {
-		gateways = append(gateways, newAuthGateway(id, log))
-	}
 	if id := ss.S.Config().AWS.Gateway.App.ID; id != "" {
 		gateways = append(gateways, newAppGateway(id, log))
 	}

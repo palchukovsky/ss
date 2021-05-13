@@ -5,9 +5,11 @@ package gatewayinstall
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2/types"
 	"github.com/palchukovsky/ss"
 )
 
@@ -37,7 +39,7 @@ func (client client) NewGatewayClient(id string) GatewayClient {
 
 type GatewayClient interface {
 	CreateModel(name, schema string) error
-	CreateRoute(name string) error
+	CreateRoute(name, description string) error
 }
 
 type gatewayClient struct {
@@ -56,15 +58,71 @@ func (client gatewayClient) CreateModel(name, schema string) error {
 	return err
 }
 
-func (client gatewayClient) CreateRoute(name string) error {
-	input := apigatewayv2.CreateRouteInput{
-		ApiId:                    client.id,
-		RouteKey:                 aws.String(name),
-		ModelSelectionExpression: aws.String("$request.body.m"),
-		RequestModels:            map[string]string{"$default": name},
+func (client gatewayClient) CreateRoute(
+	name string,
+	description string,
+) error {
+
+	lambda := fmt.Sprintf(
+		"arn:aws:apigateway:%s:lambda:path/2015-03-31/functions/arn:aws:lambda:%s:%s:function:${stageVariables.lambdaPrefix}%s/invocations",
+		ss.S.Config().AWS.Region,
+		ss.S.Config().AWS.Region,
+		ss.S.Config().AWS.AccountID,
+		name)
+	integrationInput := apigatewayv2.CreateIntegrationInput{
+		ApiId:                   client.id,
+		IntegrationType:         types.IntegrationTypeAwsProxy,
+		ContentHandlingStrategy: types.ContentHandlingStrategyConvertToText,
+		IntegrationUri:          aws.String(lambda),
+		Description:             aws.String(description),
 	}
-	_, err := client.client.CreateRoute(context.TODO(), &input)
-	return err
+	integrationOutput, err := client.client.CreateIntegration(
+		context.TODO(),
+		&integrationInput)
+	if err != nil {
+		return err
+	}
+
+	{
+		input := apigatewayv2.CreateIntegrationResponseInput{
+			ApiId:                  client.id,
+			IntegrationId:          integrationOutput.IntegrationId,
+			IntegrationResponseKey: aws.String("$default"),
+		}
+		_, err := client.client.CreateIntegrationResponse(context.TODO(), &input)
+		if err != nil {
+			return err
+		}
+	}
+
+	target := aws.String(
+		"integrations/" + aws.ToString(integrationOutput.IntegrationId))
+	routeInput := apigatewayv2.CreateRouteInput{
+		ApiId:                            client.id,
+		RouteKey:                         aws.String(name),
+		ModelSelectionExpression:         aws.String("$request.body.m"),
+		RouteResponseSelectionExpression: aws.String("$default"),
+		RequestModels:                    map[string]string{"$default": name},
+		Target:                           target,
+	}
+	routeOutput, err := client.client.CreateRoute(context.TODO(), &routeInput)
+	if err != nil {
+		return err
+	}
+
+	{
+		input := apigatewayv2.CreateRouteResponseInput{
+			ApiId:            client.id,
+			RouteId:          routeOutput.RouteId,
+			RouteResponseKey: aws.String("$default"),
+		}
+		_, err := client.client.CreateRouteResponse(context.TODO(), &input)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

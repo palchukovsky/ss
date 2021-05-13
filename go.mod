@@ -8,8 +8,9 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/aws/aws-lambda-go v1.23.0
 	github.com/aws/aws-sdk-go v1.38.25
-	github.com/aws/aws-sdk-go-v2 v1.3.4
+	github.com/aws/aws-sdk-go-v2 v1.4.0
 	github.com/aws/aws-sdk-go-v2/config v1.1.6
+	github.com/aws/aws-sdk-go-v2/service/apigateway v1.3.0
 	github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.2.2
 	github.com/beeker1121/goque v2.1.0+incompatible // indirect
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0

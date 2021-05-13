@@ -5,13 +5,6 @@
 
 package ss
 
-import (
-	"fmt"
-	"log"
-	"log/syslog"
-	"strconv"
-)
-
 func newPapertrailIfSet(
 	projectPackage,
 	module string,
@@ -19,5 +12,5 @@ func newPapertrailIfSet(
 	sentry sentry,
 ) (logDestination, error) {
 	// Doesn't have implementation for specified in "+build" OS.
-	return nil
+	return nil, nil
 }

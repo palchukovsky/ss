@@ -120,7 +120,9 @@ func (command wsCommand) Create(client GatewayClient) error {
 }
 
 func (command wsCommand) createRoute(client GatewayClient) error {
-	return client.CreateRoute(command.name)
+	return client.CreateRoute(
+		command.name,
+		fmt.Sprintf("Path: %q", command.path))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

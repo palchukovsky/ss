@@ -273,7 +273,6 @@ func (l *serviceLog) setStatics(
 }
 
 func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
-	defer l.sync()
 
 	l.setStatics(
 		logLevelPanic,
@@ -288,7 +287,13 @@ func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
 	})
 
 	atomic.StoreInt32(&l.isPanic, 1)
-	log.Panicln(message)
+
+	l.sync() //  it could be the last chance to show log messages in the queue
+
+	log.Panicf(
+		"%s %s",
+		message.GetMessage(),
+		message.ConvertAttributesToJSON())
 }
 
 func (l *serviceLog) print(message *LogMsg) {

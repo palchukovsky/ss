@@ -17,6 +17,7 @@ type Gateway interface {
 
 	Create(Client) error
 	Delete(Client) error
+	Deploy(Client) error
 }
 
 // NewGateway creates new gateway instance.
@@ -149,4 +150,8 @@ func (gateway gateway) Delete(client Client) error {
 		return err
 	}
 	return nil
+}
+
+func (gateway gateway) Deploy(client Client) error {
+	return client.NewGatewayClient(gateway.id).Deploy()
 }

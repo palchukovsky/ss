@@ -24,7 +24,12 @@ func Run(installer api.Installer) {
 
 	err := api.ForEachGateway(
 		installer,
-		func(gateway install.Gateway) error { return gateway.Create(client) },
+		func(gateway install.Gateway) error {
+			if err := gateway.Create(client); err != nil {
+				return err
+			}
+			return gateway.Deploy(client)
+		},
 		log)
 	if err != nil {
 		log.Panic(ss.NewLogMsg(`failed to create gateway`).AddErr(err))

@@ -62,6 +62,8 @@ type GatewayClient interface {
 
 	CreateAuthorizer(name string) (GatewayAuthorizer, error)
 	DeleteAuthorizers() error
+
+	Deploy() error
 }
 
 type gatewayClient struct {
@@ -320,6 +322,15 @@ func (client gatewayClient) DeleteAuthorizers() error {
 		}
 	}
 	return nil
+}
+
+func (client gatewayClient) Deploy() error {
+	input := apigatewayv2.CreateDeploymentInput{
+		ApiId:     client.id,
+		StageName: aws.String(ss.S.Build().Version),
+	}
+	_, err := client.client.CreateDeployment(context.TODO(), &input)
+	return err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

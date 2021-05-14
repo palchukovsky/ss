@@ -11,7 +11,31 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/palchukovsky/ss"
+	lambda "github.com/palchukovsky/ss/api/gateway/install/lambda/create"
 )
+
+////////////////////////////////////////////////////////////////////////////////
+
+func init() {
+
+	config := ss.Config{}
+
+	lambda.Init(
+		func(projectPackage string, params ss.ServiceParams) {
+			ss.Set(
+				newService(
+					projectPackage,
+					"",
+					"",
+					config))
+		})
+}
+
+func main() {
+	defer func() { ss.S.Log().CheckExit(nil) }()
+	ss.S.Log().Debug(ss.NewLogMsg("first debug"))
+	ss.S.Log().Info(ss.NewLogMsg("second debug"))
+}
 
 type service struct {
 	key    string
@@ -25,13 +49,13 @@ func newService(
 	projectPackage string,
 	key string,
 	secret string,
-	config ss.Config,
-) ss.Service {
+	config ss.Config) service {
+
 	return service{
 		key:    key,
 		secret: secret,
 		config: config.SS.Service,
-		log:    ss.NewLog(projectPackage, "test/gateway/install/create", config),
+		log:    ss.NewLog(projectPackage, "asdAsd", config),
 		build: ss.Build{
 			Version:    "test",
 			Commit:     "local",
@@ -49,18 +73,9 @@ func (s service) Config() ss.ServiceConfig            { return s.config }
 func (s service) Build() ss.Build                     { return s.build }
 func (service) NewBuildEntityName(name string) string { return "test_" + name }
 
-func (s service) StartLambda() {
-	s.Log().Panic(ss.NewLogMsg("StartLambda is not implemented"))
-}
-
-func (s service) CompleteLambda(panicValue interface{}) {
-	s.Log().Panic(ss.NewLogMsg("StartLambda is not implemented"))
-}
-
-func (s service) GetLambdaTimeout() <-chan time.Time {
-	s.Log().Panic(ss.NewLogMsg("StartLambda is not implemented"))
-	return nil
-}
+func (service) StartLambda()                       {}
+func (service) CompleteLambda(interface{})         {}
+func (service) GetLambdaTimeout() <-chan time.Time { return nil }
 
 type credentials struct {
 	key    string
@@ -78,7 +93,7 @@ func (credentials credentials) Retrieve(
 }
 
 func (s service) NewAWSConfig() aws.Config {
-	result, err := config.LoadDefaultConfig(
+	result, _ := config.LoadDefaultConfig(
 		context.TODO(),
 		config.WithRegion(s.Config().AWS.Region),
 		config.WithCredentialsProvider(
@@ -86,13 +101,13 @@ func (s service) NewAWSConfig() aws.Config {
 				key:    s.key,
 				secret: s.secret,
 			}))
-	if err != nil {
-		s.Log().Panic(ss.NewLogMsg(`failed to load AWS config`).AddErr(err))
-	}
+	// if err != nil {
+	//s.Log().Panic(`Failed to load AWS config: "%v".`, err)
+	// }
 	return result
 }
 
 func (s service) NewAWSSessionV1() *session.Session {
-	s.Log().Panic(ss.NewLogMsg("AWS Config V1 is not implemented"))
+	// s.Log().Panic("AWS Config V1 is not implemented")
 	return nil
 }

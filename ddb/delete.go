@@ -32,8 +32,9 @@ func (client client) Delete(key KeyRecord) Delete {
 	result.input.Key, result.err = dynamodbattribute.MarshalMap(key.GetKey())
 	if result.err != nil {
 		result.err = fmt.Errorf(
-			`failed to serialize key to delete from table %q: "%w", key: %s`,
-			result.getTable(), result.err, ss.Dump(key))
+			`failed to serialize key to delete from table %q: "%w"`,
+			result.getTable(),
+			result.err)
 	}
 	result.input.ConditionExpression = aws.String(fmt.Sprintf(
 		"attribute_exists(%s)", aliasReservedWord(
@@ -79,9 +80,11 @@ func (delete delete) RequestAndReturn(result RecordBuffer) (bool, error) {
 	}
 	err = dynamodbattribute.UnmarshalMap(output.Attributes, result)
 	if err != nil {
-		return false, fmt.Errorf(
-			`failed to read delete response from table %q: "%w", dump: %s`,
-			delete.getTable(), err, ss.Dump(output.Attributes))
+		return false,
+			fmt.Errorf(
+				`failed to read delete response from table %q: "%w"`,
+				delete.getTable(),
+				err)
 	}
 	return true, nil
 }
@@ -98,9 +101,11 @@ func (delete delete) request() (*dynamodb.DeleteItemOutput, error) {
 				return nil, nil
 			}
 		}
-		return nil, fmt.Errorf(
-			`failed to delete item from table %q: "%w", input: %s`,
-			delete.getTable(), err, ss.Dump(delete.input))
+		return nil,
+			fmt.Errorf(
+				`failed to delete item from table %q: "%w"`,
+				delete.getTable(),
+				err)
 	}
 	return result, nil
 }

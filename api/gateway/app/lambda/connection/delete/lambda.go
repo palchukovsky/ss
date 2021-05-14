@@ -37,10 +37,12 @@ func (lambda lambda) Execute(request ws.Request) error {
 			request.GetConnectionID(), err)
 	}
 	if !isFound {
-		request.Log().Warn(`Failed to find connection %q to delete.`,
-			request.GetConnectionID())
+		request.Log().Warn(
+			ss.
+				NewLogMsg(`failed to find connection to delete`).
+				Add(request.GetConnectionID()))
 		return nil
 	}
-	request.Log().Debug("Disconnected.")
+	request.Log().Debug(ss.NewLogMsg("disconnected"))
 	return nil
 }

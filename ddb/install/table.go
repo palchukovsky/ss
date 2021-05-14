@@ -16,7 +16,7 @@ import (
 // Table describes table installing interface.
 type Table interface {
 	GetName() string
-	Log() ss.ServiceLogStream
+	Log() ss.LogStream
 
 	Create() error
 	Delete() error
@@ -35,26 +35,26 @@ type TableAbstraction struct {
 	name   string
 	db     DB
 	record ssddb.DataRecord
-	log    ss.ServiceLogStream
+	log    ss.LogStream
 }
 
 func NewTableAbstraction(
 	db DB,
 	record ssddb.DataRecord,
-	log ss.ServiceLog,
+	log ss.Log,
 ) TableAbstraction {
 	result := TableAbstraction{
 		db:     db,
 		record: record,
 		name:   ss.S.NewBuildEntityName(record.GetTable()),
 	}
-	result.log = log.NewSession(result.name)
+	result.log = log.NewSession(ss.NewLogPrefix().AddVal("table", result.name))
 	return result
 }
 
-func (table TableAbstraction) GetName() string          { return table.name }
-func (table TableAbstraction) Log() ss.ServiceLogStream { return table.log }
-func (table TableAbstraction) getAWSName() *string      { return &table.name }
+func (table TableAbstraction) GetName() string     { return table.name }
+func (table TableAbstraction) Log() ss.LogStream   { return table.log }
+func (table TableAbstraction) getAWSName() *string { return &table.name }
 
 func (table TableAbstraction) Delete() error {
 	return table.db.DeleteTable(ddb.DeleteTableInput{
@@ -167,8 +167,7 @@ func (table TableAbstraction) Create(
 	}
 
 	if err := table.db.CreateTable(input); err != nil {
-		err = fmt.Errorf(`failed to create table: "%w", input: %s`,
-			err, ss.Dump(input))
+		err = fmt.Errorf(`failed to create table: "%w"`, err)
 		return err
 	}
 
@@ -272,8 +271,10 @@ func NewStream(lambda string) Stream { return Stream{lambda: lambda} }
 type StreamViewType string
 
 const (
-	StreamViewTypeFull StreamViewType = ddb.StreamViewTypeNewAndOldImages
 	StreamViewTypeNone StreamViewType = ddb.StreamViewTypeKeysOnly
+	StreamViewTypePrev StreamViewType = ddb.StreamViewTypeOldImage
+	StreamViewTypeNew  StreamViewType = ddb.StreamViewTypeNewImage
+	StreamViewTypeFull StreamViewType = ddb.StreamViewTypeNewAndOldImages
 )
 
 ////////////////////////////////////////////////////////////////////////////////

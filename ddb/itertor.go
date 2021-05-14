@@ -10,7 +10,6 @@ import (
 	awsrequest "github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/palchukovsky/ss"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -79,11 +78,9 @@ func (it *cacheIterator) readAt(index int) {
 	it.err = dynamodbattribute.UnmarshalMap(it.data[index], it.record)
 	if it.err != nil {
 		it.err = fmt.Errorf(
-			`failed to unmarshal cached row %d of %d`+
-				` from with type %q from row set: "%w"`,
+			`failed to unmarshal cached row %d of %d from row set: "%w"`,
 			index,
 			len(it.data),
-			ss.GetTypeName(it.record),
 			it.err)
 	}
 }

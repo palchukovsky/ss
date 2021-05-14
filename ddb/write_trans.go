@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/palchukovsky/ss"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,8 +68,9 @@ func (trans writeTransExpression) marshalValues(values Values,
 	var result map[string]*dynamodb.AttributeValue
 	result, trans.trans.err = values.Marshal()
 	if trans.trans.err != nil {
-		trans.trans.err = fmt.Errorf(`failed to serialize values: "%w", values: %s`,
-			trans.trans.err, ss.Dump(values))
+		trans.trans.err = fmt.Errorf(
+			`failed to serialize values: "%w"`,
+			trans.trans.err)
 	}
 	return result
 }

@@ -17,9 +17,9 @@ import (
 
 // Request describes request to lambda.
 type Request interface {
-	Log() ss.ServiceLogStream
+	Log() ss.LogSession
 
-	GetConnectionID() lambda.ConnectionID
+	GetConnectionID() ss.ConnectionID
 	GetUserID() ss.UserID
 
 	ReadRequest(interface{}) error
@@ -46,10 +46,11 @@ func newRequest(
 	if err != nil {
 		return request{}, err
 	}
-	logPrefix := fmt.Sprintf("%s.%s.%s",
-		user,
-		awsRequest.RequestContext.ConnectionID,
-		awsRequest.RequestContext.RequestID)
+	logPrefix := ss.
+		NewLogPrefix().
+		Add(user).
+		Add(ss.ConnectionID(awsRequest.RequestContext.ConnectionID)).
+		AddRequestID(awsRequest.RequestContext.RequestID)
 	return request{
 		Request:    gate.NewRequest(gateway, logPrefix, nil),
 		AWSRequest: awsRequest,
@@ -57,17 +58,15 @@ func newRequest(
 	}, nil
 }
 
-func (request request) GetConnectionID() lambda.ConnectionID {
-	return lambda.ConnectionID(request.AWSRequest.RequestContext.ConnectionID)
+func (request request) GetConnectionID() ss.ConnectionID {
+	return ss.ConnectionID(request.AWSRequest.RequestContext.ConnectionID)
 }
 
 func (request request) GetUserID() ss.UserID { return request.user }
 
 func (request *request) ReadRequest(result interface{}) error {
 	if err := json.Unmarshal(request.readRequest()["d"], result); err != nil {
-		return fmt.Errorf(
-			`failed to parse request argument: "%w". Type %q. Dump: %q`,
-			err, ss.GetTypeName(result), request.AWSRequest.Body)
+		return fmt.Errorf(`failed to parse request argument: %w`, err)
 	}
 	return nil
 }
@@ -79,8 +78,11 @@ func (request *request) ReadRemoteID() *string {
 	}
 	var result string
 	if err := json.Unmarshal(node, &result); err != nil {
-		ss.S.Log().Panic(`Failed to parse request remote ID: "%v. Dump: %s`,
-			err, ss.Dump(request.AWSRequest))
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(`failed to parse request remote ID`).
+				AddErr(err).
+				AddRequest(request.AWSRequest))
 	}
 	return &result
 }
@@ -95,8 +97,11 @@ func (request *request) readRequest() map[string]json.RawMessage {
 	}
 	err := request.UnmarshalRequest(request.AWSRequest.Body, &request.rawRequest)
 	if err != nil {
-		ss.S.Log().Panic(`Failed to parse raw request: "%v". Request dump: %s`,
-			err, ss.Dump(request.AWSRequest))
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(`failed to parse raw request`).
+				AddErr(err).
+				AddRequest(request.AWSRequest))
 	}
 	return request.rawRequest
 }

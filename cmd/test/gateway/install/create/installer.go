@@ -14,9 +14,7 @@ func newInstaller(wsGatewayID string) installer {
 	return installer{wsGatewayID: wsGatewayID}
 }
 
-func (installer installer) NewGateways(
-	log ss.ServiceLog,
-) []gatewayinstall.Gateway {
+func (installer installer) NewGateways(log ss.Log) []gatewayinstall.Gateway {
 	return []gatewayinstall.Gateway{
 		gatewayinstall.NewGateway(
 			installer.wsGatewayID,
@@ -36,7 +34,7 @@ type gatewayCommadsReader struct{}
 
 func (gatewayCommadsReader) Read(
 	name string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) ([]gatewayinstall.Command, error) {
 	cmd, err := gatewayinstall.NewWSCommand(
 		"TestCmd",

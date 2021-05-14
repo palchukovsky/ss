@@ -4,9 +4,7 @@
 package ss
 
 import (
-	"fmt"
 	"log"
-	"strconv"
 
 	logglylib "github.com/segmentio/go-loggly"
 )
@@ -23,7 +21,7 @@ func newLogglyIfSet(
 	}
 
 	result := loggly{
-		messageChan: make(chan logglyMessage, 10),
+		messageChan: make(chan *LogMsg, 10),
 		syncChan:    make(chan struct{}),
 		client:      logglylib.New(config.SS.Log.Loggly),
 		sentry:      sentry,
@@ -35,112 +33,77 @@ func newLogglyIfSet(
 }
 
 type loggly struct {
-	messageChan chan logglyMessage
+	messageChan chan *LogMsg
 	syncChan    chan struct{}
 	client      *logglylib.Client
 	sentry      sentry
 }
 
-type logglyMessage struct {
-	Message string
-	Write   func(client *logglylib.Client, message string) error
-}
-
 func (loggly) GetName() string { return "Loggly" }
 
-func (l loggly) WriteDebug(message string) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Debug(m) })
+func (l loggly) WriteDebug(message *LogMsg) error {
+	l.write(message)
 	return nil
 }
 
-func (l loggly) WriteInfo(message string) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Info(m) })
+func (l loggly) WriteInfo(message *LogMsg) error {
+	l.write(message)
 	return nil
 }
 
-func (l loggly) WriteWarn(message string) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Warn(m) })
+func (l loggly) WriteWarn(message *LogMsg) error {
+	l.write(message)
 	return nil
 }
 
-func (l loggly) WriteError(message string) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Error(m) })
+func (l loggly) WriteError(message *LogMsg) error {
+	l.write(message)
 	return nil
 }
 
-func (l loggly) WritePanic(message string) error {
-	l.write(
-		message,
-		func(c *logglylib.Client, m string) error { return c.Critical(m) })
+func (l loggly) WritePanic(message *LogMsg) error {
+	l.write(message)
 	return nil
 }
 
 func (l loggly) Sync() error {
-	l.messageChan <- logglyMessage{}
+	l.messageChan <- nil
 	<-l.syncChan
 	return nil
 }
 
-func (l loggly) write(
-	message string,
-	write func(client *logglylib.Client, message string) error,
-) {
-	l.messageChan <- logglyMessage{
-		Message: message,
-		Write:   write,
-	}
-}
+func (l loggly) write(message *LogMsg) { l.messageChan <- message }
 
 func (l loggly) runWriter() {
 	defer func() {
 		if err := l.client.Flush(); err != nil {
 			log.Printf(
 				`Error: Failed to flush log %q record: %v`, l.GetName(), err)
-			l.sentry.CaptureException(
-				fmt.Errorf(`Failed to flush log %q record: %w`, l.GetName(), err))
+			l.sentry.CaptureMessage(
+				NewLogMsg(`failed to flush log %q record`, l.GetName()).AddErr(err))
 		}
 	}()
 
-	sequenceNumber := 0
 	for {
 		message, isOpen := <-l.messageChan
 		if !isOpen {
 			break
 		}
 
-		if message.Write == nil {
+		if message == nil {
 			if err := l.client.Flush(); err != nil {
-				log.Printf(
-					`Error: Failed to sync log %q record: %v`,
-					l.GetName(),
-					err)
-				l.sentry.CaptureException(
-					fmt.Errorf(`Failed to sync log %q record: %w`, l.GetName(), err))
+				log.Printf(`Error: Failed to sync log %q record: %v`, l.GetName(), err)
+				l.sentry.CaptureMessage(
+					NewLogMsg(`failed to sync log %q record`, l.GetName()).AddErr(err))
 			}
 			l.syncChan <- struct{}{}
 			continue
 		}
 
-		sequenceNumber++
-
-		err := message.Write(
-			l.client,
-			message.Message+" "+strconv.Itoa(sequenceNumber))
-		if err != nil {
-			log.Printf(
-				`Error: Failed to write log %q record: %v`,
-				l.GetName(),
-				err)
-			l.sentry.CaptureException(
-				fmt.Errorf(`Failed to write log %q record: %w`, l.GetName(), err))
+		if err := l.client.Send(message.MarshalMap()); err != nil {
+			log.Printf(`Error: Failed to write log %q record: %v`, l.GetName(), err)
+			l.sentry.CaptureMessage(
+				NewLogMsg(`failed to write log %q record`, l.GetName()).AddErr(err))
 		}
 	}
 }

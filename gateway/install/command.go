@@ -14,7 +14,7 @@ import (
 
 type Command interface {
 	GetName() string
-	Log() ss.ServiceLogStream
+	Log() ss.LogStream
 
 	Create(GatewayClient) error
 }
@@ -23,20 +23,21 @@ type Command interface {
 
 type command struct {
 	name string
-	log  ss.ServiceLogStream
+	log  ss.LogStream
 }
 
 func newCommand(
 	name string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) (command, error) {
 	result := command{name: name}
-	result.log = log.NewSession(result.name)
+	result.log = log.NewSession(
+		ss.NewLogPrefix().AddVal("gatewayCommand", result.name))
 	return result, nil
 }
 
-func (command command) GetName() string          { return command.name }
-func (command command) Log() ss.ServiceLogStream { return command.log }
+func (command command) GetName() string   { return command.name }
+func (command command) Log() ss.LogStream { return command.log }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -44,7 +45,7 @@ func (command command) Log() ss.ServiceLogStream { return command.log }
 func NewRESTCommand(
 	name string,
 	path string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) (Command, error) {
 	command, err := newCommand(name, log)
 	if err != nil {
@@ -65,7 +66,7 @@ func (restCommand) Create(client GatewayClient) error {
 func NewWSCommand(
 	name string,
 	path string,
-	log ss.ServiceLogStream,
+	log ss.LogStream,
 ) (Command, error) {
 
 	name = strings.ReplaceAll(name, "_", " ")
@@ -138,7 +139,7 @@ func (command wsCommand) createModel(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newWSConnectCommand(log ss.ServiceLogStream) (Command, error) {
+func newWSConnectCommand(log ss.LogStream) (Command, error) {
 	command, err := newCommand("$connect", log)
 	if err != nil {
 		return nil, err
@@ -163,7 +164,7 @@ func (command wsConnectCommand) createRoute(client GatewayClient) error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newWSDesconnectCommand(log ss.ServiceLogStream) (Command, error) {
+func newWSDesconnectCommand(log ss.LogStream) (Command, error) {
 	command, err := newCommand("$disconnect", log)
 	if err != nil {
 		return nil, err

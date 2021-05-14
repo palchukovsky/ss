@@ -54,8 +54,9 @@ func (trans *writeTrans) newCreateTrans(record DataRecord) createTrans {
 	result.input.Item, trans.err = dynamodbattribute.MarshalMap(record.GetData())
 	if trans.err != nil {
 		trans.err = fmt.Errorf(
-			`failed to serialize item to put into table %q: "%w", data: %s`,
-			record.GetTable(), trans.err, ss.Dump(record))
+			`failed to serialize item to put into table %q: "%w"`,
+			record.GetTable(),
+			trans.err)
 	}
 	return result
 }

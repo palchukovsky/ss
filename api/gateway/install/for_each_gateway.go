@@ -14,9 +14,9 @@ import (
 func ForEachGateway(
 	installer Installer,
 	callback func(gatewayinstall.Gateway) error,
-	log ss.ServiceLog,
+	log ss.Log,
 ) error {
-	log.Debug("Processing each gateway...")
+	log.Debug(ss.NewLogMsg("processing each gateway..."))
 
 	gateways := installer.NewGateways(log)
 	if id := ss.S.Config().AWS.Gateway.App.ID; id != "" {
@@ -24,13 +24,13 @@ func ForEachGateway(
 	}
 
 	for _, gateway := range gateways {
-		gateway.Log().Debug("Processing...")
+		gateway.Log().Debug(ss.NewLogMsg("Processing..."))
 		if err := callback(gateway); err != nil {
 			return fmt.Errorf(`failed to process %q: "%w"`, gateway.GetName(), err)
 		}
-		gateway.Log().Info("Processed.")
+		gateway.Log().Info(ss.NewLogMsg("processed"))
 	}
 
-	log.Debug("Processing each gateway successfully completed.")
+	log.Debug(ss.NewLogMsg("processing each gateway successfully completed"))
 	return nil
 }

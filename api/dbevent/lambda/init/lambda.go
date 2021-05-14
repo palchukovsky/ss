@@ -1,8 +1,6 @@
 // Copyright 2021, the SS project owners. All rights reserved.
 // Please see the OWNERS and LICENSE files for details.
 
-// Sends initial data for each new connection.
-
 package initlambda
 
 import (
@@ -18,30 +16,7 @@ type response struct {
 	Version string `json:"ver"`
 }
 
-func Init(initService func(projectPackage string, params ss.ServiceParams)) {
-	apidbevent.Init(
-		func() dbeventlambda.Lambda {
-			result := lambda{gateway: sslambda.NewGateway()}
-			{
-				build := ss.S.Build()
-				var err error
-				result.message, err = result.gateway.Serialize(
-					response{Build: build.ID, Version: build.Version})
-				if err != nil {
-					ss.S.Log().Panic(`Failed to serialize: "%v".`, err)
-				}
-			}
-			return result
-		},
-		func(projectPackage string) {
-			initService(projectPackage, ss.ServiceParams{IsAWS: true})
-		})
-}
-
-func Run() { apidbevent.Run() }
-
-////////////////////////////////////////////////////////////////////////////////
-
+// Lambda sends initial data for each new connection.
 type lambda struct {
 	gateway sslambda.Gateway
 	message []byte
@@ -65,7 +40,7 @@ func (lambda lambda) execute(
 	}
 
 	connection := struct {
-		ID sslambda.ConnectionID `json:"id"`
+		ID ss.ConnectionID `json:"id"`
 	}{}
 	err := apidbevent.UnmarshalEventsDynamoDBAttributeValues(
 		event.Change.Keys, &connection)
@@ -73,13 +48,11 @@ func (lambda lambda) execute(
 		return err
 	}
 
-	isSent, err := lambda.gateway.SendSerialized(connection.ID, lambda.message)
-	if err != nil {
-		return err
-	}
-	if !isSent {
-		request.Log().Debug("%q already disconnected.", connection.ID)
-	}
+	gateway := lambda.gateway.NewSessionGatewaySendSession(request.Log())
+	gateway.SendSerialized(connection.ID, lambda.message)
+	// Init isn't worry is dbevent executed or no, so it doesn't check stat,
+	// just waits until the message will be sent:
+	gateway.CloseAndGetStat()
 
 	return nil
 }

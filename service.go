@@ -12,6 +12,8 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -22,11 +24,15 @@ import (
 
 // Service is the root interface of the service.
 type Service interface {
-	Log() ServiceLog
+	Log() Log
 	Product() string
 	Name() string
 	Config() ServiceConfig
 	Build() Build
+
+	StartLambda()
+	CompleteLambda(panicValue interface{})
+	GetLambdaTimeout() <-chan time.Time
 
 	NewBuildEntityName(name string) string
 
@@ -75,7 +81,7 @@ func NewService(
 		}
 	}
 
-	return service{
+	return &service{
 		name:    name,
 		product: product,
 		config:  config.SS.Service,
@@ -88,37 +94,138 @@ type service struct {
 	name    string
 	product string
 	config  ServiceConfig
-	log     ServiceLog
+	log     Log
 	build   Build
+
+	lambdaTimeoutMutex     sync.Mutex
+	lambdaTimeoutObservers *struct {
+		Chans       []chan<- time.Time
+		TimeoutTime *time.Time
+	}
 }
 
-func (service service) Log() ServiceLog       { return service.log }
-func (service service) Config() ServiceConfig { return service.config }
-func (service service) Build() Build          { return service.build }
-func (service service) Name() string          { return service.name }
-func (service service) Product() string       { return service.product }
+func (service *service) Log() Log              { return service.log }
+func (service *service) Config() ServiceConfig { return service.config }
+func (service *service) Build() Build          { return service.build }
+func (service *service) Name() string          { return service.name }
+func (service *service) Product() string       { return service.product }
 
-func (service service) NewBuildEntityName(name string) string {
+func (service *service) StartLambda() {
+	timeout := time.After(LambdaMaxRunTime)
+	observers := &struct {
+		Chans       []chan<- time.Time
+		TimeoutTime *time.Time
+	}{
+		Chans: []chan<- time.Time{},
+	}
+
+	{
+		service.lambdaTimeoutMutex.Lock()
+		if service.lambdaTimeoutObservers == nil {
+			service.lambdaTimeoutObservers = observers
+		} else {
+			observers = nil
+		}
+		service.lambdaTimeoutMutex.Unlock()
+	}
+
+	if observers == nil {
+		service.Log().Panic(NewLogMsg("previous lambda isn't completed"))
+	}
+
+	go func() {
+
+		value := <-timeout
+
+		service.lambdaTimeoutMutex.Lock()
+		defer service.lambdaTimeoutMutex.Unlock()
+		// observers.Chans could be already not the same as not service has, but
+		// mutex has to be the same as it could be the same also.
+
+		var sync sync.WaitGroup
+		sync.Add(1)
+		go func() {
+			for _, observerChan := range observers.Chans {
+				observerChan <- value
+			}
+			sync.Done()
+		}()
+
+		if observers == service.lambdaTimeoutObservers {
+			// Lambda isn't finished yet.
+			service.Log().Error(NewLogMsg("%s lambda timeout", service.Name()))
+		}
+
+		sync.Wait()
+
+		observers.TimeoutTime = &value
+
+	}()
+
+}
+
+func (service *service) CompleteLambda(panicValue interface{}) {
+	service.lambdaTimeoutMutex.Lock()
+
+	if service.lambdaTimeoutObservers == nil {
+		service.lambdaTimeoutMutex.Unlock()
+		logMessage := NewLogMsg("lambda isn't started")
+		if panicValue != nil {
+			service.Log().Error(logMessage)
+			service.log.CheckExit(panicValue)
+			return
+		}
+		service.Log().Panic(logMessage)
+		return
+	}
+
+	service.lambdaTimeoutObservers.Chans = nil
+	service.lambdaTimeoutObservers = nil
+
+	service.lambdaTimeoutMutex.Unlock()
+
+	service.log.CheckExit(panicValue)
+}
+
+func (service *service) GetLambdaTimeout() <-chan time.Time {
+	result := make(chan time.Time, 1)
+	service.lambdaTimeoutMutex.Lock()
+	// If no timer - lambda has never started, so there is no any run time limit.
+	if service.lambdaTimeoutObservers != nil {
+		if service.lambdaTimeoutObservers.TimeoutTime == nil {
+			service.lambdaTimeoutObservers.Chans = append(
+				service.lambdaTimeoutObservers.Chans,
+				result)
+		} else {
+			timeoutTime := *service.lambdaTimeoutObservers.TimeoutTime
+			go func() { result <- timeoutTime }()
+		}
+	}
+	service.lambdaTimeoutMutex.Unlock()
+	return result
+}
+
+func (service *service) NewBuildEntityName(name string) string {
 	return fmt.Sprintf("%s_%s_%s",
 		service.Product(),
 		service.Build().Version,
 		name)
 }
 
-func (service service) NewAWSConfig() aws.Config {
+func (service *service) NewAWSConfig() aws.Config {
 	result, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		service.Log().Panic(`Failed to load AWS config: "%v".`, err)
+		service.Log().Panic(NewLogMsg(`failed to load AWS config`).AddErr(err))
 	}
 	return result
 }
 
-func (service service) NewAWSSessionV1() *session.Session {
+func (service *service) NewAWSSessionV1() *session.Session {
 	result, err := session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	})
 	if err != nil {
-		service.Log().Panic(`Failed to load AWS v1 config: "%v".`, err)
+		service.Log().Panic(NewLogMsg(`failed to load AWS v1 config`).AddErr(err))
 	}
 	return result
 }

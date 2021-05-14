@@ -5,7 +5,6 @@ package restgatewaylambda
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -18,7 +17,7 @@ import (
 
 // Request describes request to lambda.
 type Request interface {
-	Log() ss.ServiceLogStream
+	Log() ss.LogSession
 
 	ReadRequest(interface{}) error
 
@@ -47,7 +46,9 @@ func newRequest(
 ) request {
 	return request{
 		Request: gate.NewRequest(
-			gateway, awsRequest.RequestContext.RequestID, struct{}{}),
+			gateway,
+			ss.NewLogPrefix().AddRequestID(awsRequest.RequestContext.RequestID),
+			struct{}{}),
 		AWSRequest: awsRequest,
 		StatusCode: http.StatusOK,
 		context:    context,
@@ -84,18 +85,6 @@ func (request *request) RespondWithBadRequestError() {
 func (request *request) RespondWithNotFoundError() {
 	request.Request.Respond(struct{}{})
 	request.StatusCode = http.StatusNotFound
-}
-
-func (request request) NewResponse() string {
-	if request.ResponseBody == nil {
-		return ""
-	}
-	responseDump, err := json.Marshal(request.ResponseBody)
-	if err != nil {
-		ss.S.Log().Panic(`Failed to marshal response: "%w". Dump: %s`,
-			err, ss.Dump(request.ResponseBody))
-	}
-	return string(responseDump)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -27,7 +27,7 @@ func Run(installer api.Installer) {
 		func(gateway install.Gateway) error { return gateway.Delete(client) },
 		log)
 	if err != nil {
-		log.Panic(`Failed to delete gateway: "%v".`, err)
+		log.Panic(ss.NewLogMsg(`failed to delete gateway`).AddErr(err))
 	}
 
 }

@@ -23,3 +23,7 @@ func ParseUserID(source string) (UserID, error) {
 	}
 	return LoadUserID(entityID), nil
 }
+
+func (user UserID) MarshalLogMsg(destination map[string]interface{}) {
+	destination[logMsgNodeUser] = user
+}

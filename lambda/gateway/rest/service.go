@@ -5,6 +5,7 @@ package restgatewaylambda
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -38,41 +39,66 @@ func (service service) Start() {
 }
 
 func (service service) handle(request awsRequest) (awsResponse, error) {
+	ss.S.StartLambda()
+	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	lambdaRequest := newRequest(request, service.Gateway, service.context)
-	defer func() { lambdaRequest.Log().CheckExit(recover()) }()
+	defer func() {
+		lambdaRequest.Log().CheckPanic(
+			recover(),
+			func() *ss.LogMsg {
+				return ss.
+					NewLogMsg("panic at request handling").
+					AddRequest(lambdaRequest.AWSRequest)
+			})
+	}()
 
 	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug(
-			"Lambda request dump: %s",
-			ss.Dump(lambdaRequest.AWSRequest))
+			ss.NewLogMsg("lambda request").AddRequest(lambdaRequest.AWSRequest))
 	}
 	if err := service.validateRequest(request); err != nil {
 		lambdaRequest.Log().Warn(
-			`Request validation failed: "%v". Request dump: %s`, err,
-			ss.Dump(lambdaRequest.AWSRequest))
+			ss.
+				NewLogMsg(`request validation failed`).
+				AddErr(err).
+				AddRequest(lambdaRequest.AWSRequest))
 		return awsResponse{StatusCode: http.StatusBadRequest}, nil
 	}
 
 	if err := service.lambda.Execute(&lambdaRequest); err != nil {
 		lambdaRequest.Log().Error(
-			`Lambda execution error: "%v". Request dump: %s`,
-			err,
-			ss.Dump(lambdaRequest.AWSRequest))
+			ss.
+				NewLogMsg(`lambda execution error`).
+				AddErr(err).
+				AddRequest(lambdaRequest.AWSRequest))
 		return awsResponse{StatusCode: http.StatusInternalServerError}, err
 	}
 
-	response := awsResponse{
+	result := awsResponse{
 		StatusCode: lambdaRequest.StatusCode,
-		Body:       lambdaRequest.NewResponse(),
 	}
+
 	if ss.S.Config().IsExtraLogEnabled() {
 		lambdaRequest.Log().Debug(
-			"Response status code: %d. Dump: %s",
-			response.StatusCode,
-			response.Body)
+			ss.NewLogMsg("lambda response").
+				AddVal("statusCode", result.StatusCode).
+				AddResponse(lambdaRequest.ResponseBody))
 	}
-	return response, nil
+
+	if lambdaRequest.ResponseBody != nil {
+		dump, err := json.Marshal(lambdaRequest.ResponseBody)
+		if err != nil {
+			lambdaRequest.Log().Panic(
+				ss.
+					NewLogMsg(`failed to marshal response`).
+					AddErr(err).
+					AddResponse(lambdaRequest.ResponseBody))
+		}
+		result.Body = string(dump)
+	}
+
+	return result, nil
 }
 
 func (service service) validateRequest(request awsRequest) error {

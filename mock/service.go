@@ -5,93 +5,39 @@
 package mock_ss
 
 import (
+	reflect "reflect"
+	time "time"
+
 	aws "github.com/aws/aws-sdk-go-v2/aws"
 	session "github.com/aws/aws-sdk-go/aws/session"
 	gomock "github.com/golang/mock/gomock"
 	ss "github.com/palchukovsky/ss"
-	reflect "reflect"
 )
 
-// MockService is a mock of Service interface
+// MockService is a mock of Service interface.
 type MockService struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceMockRecorder
 }
 
-// MockServiceMockRecorder is the mock recorder for MockService
+// MockServiceMockRecorder is the mock recorder for MockService.
 type MockServiceMockRecorder struct {
 	mock *MockService
 }
 
-// NewMockService creates a new mock instance
+// NewMockService creates a new mock instance.
 func NewMockService(ctrl *gomock.Controller) *MockService {
 	mock := &MockService{ctrl: ctrl}
 	mock.recorder = &MockServiceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
-// Log mocks base method
-func (m *MockService) Log() ss.ServiceLog {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Log")
-	ret0, _ := ret[0].(ss.ServiceLog)
-	return ret0
-}
-
-// Log indicates an expected call of Log
-func (mr *MockServiceMockRecorder) Log() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockService)(nil).Log))
-}
-
-// Product mocks base method
-func (m *MockService) Product() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Product")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Product indicates an expected call of Product
-func (mr *MockServiceMockRecorder) Product() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Product", reflect.TypeOf((*MockService)(nil).Product))
-}
-
-// Name mocks base method
-func (m *MockService) Name() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Name indicates an expected call of Name
-func (mr *MockServiceMockRecorder) Name() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockService)(nil).Name))
-}
-
-// Config mocks base method
-func (m *MockService) Config() ss.ServiceConfig {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(ss.ServiceConfig)
-	return ret0
-}
-
-// Config indicates an expected call of Config
-func (mr *MockServiceMockRecorder) Config() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockService)(nil).Config))
-}
-
-// Build mocks base method
+// Build mocks base method.
 func (m *MockService) Build() ss.Build {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Build")
@@ -99,27 +45,81 @@ func (m *MockService) Build() ss.Build {
 	return ret0
 }
 
-// Build indicates an expected call of Build
+// Build indicates an expected call of Build.
 func (mr *MockServiceMockRecorder) Build() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockService)(nil).Build))
 }
 
-// NewBuildEntityName mocks base method
-func (m *MockService) NewBuildEntityName(name string) string {
+// CompleteLambda mocks base method.
+func (m *MockService) CompleteLambda(panicValue interface{}) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewBuildEntityName", name)
+	m.ctrl.Call(m, "CompleteLambda", panicValue)
+}
+
+// CompleteLambda indicates an expected call of CompleteLambda.
+func (mr *MockServiceMockRecorder) CompleteLambda(panicValue interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteLambda", reflect.TypeOf((*MockService)(nil).CompleteLambda), panicValue)
+}
+
+// Config mocks base method.
+func (m *MockService) Config() ss.ServiceConfig {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(ss.ServiceConfig)
+	return ret0
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockServiceMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockService)(nil).Config))
+}
+
+// GetLambdaTimeout mocks base method.
+func (m *MockService) GetLambdaTimeout() <-chan time.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLambdaTimeout")
+	ret0, _ := ret[0].(<-chan time.Time)
+	return ret0
+}
+
+// GetLambdaTimeout indicates an expected call of GetLambdaTimeout.
+func (mr *MockServiceMockRecorder) GetLambdaTimeout() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLambdaTimeout", reflect.TypeOf((*MockService)(nil).GetLambdaTimeout))
+}
+
+// Log mocks base method.
+func (m *MockService) Log() ss.Log {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Log")
+	ret0, _ := ret[0].(ss.Log)
+	return ret0
+}
+
+// Log indicates an expected call of Log.
+func (mr *MockServiceMockRecorder) Log() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockService)(nil).Log))
+}
+
+// Name mocks base method.
+func (m *MockService) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// NewBuildEntityName indicates an expected call of NewBuildEntityName
-func (mr *MockServiceMockRecorder) NewBuildEntityName(name interface{}) *gomock.Call {
+// Name indicates an expected call of Name.
+func (mr *MockServiceMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBuildEntityName", reflect.TypeOf((*MockService)(nil).NewBuildEntityName), name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockService)(nil).Name))
 }
 
-// NewAWSConfig mocks base method
+// NewAWSConfig mocks base method.
 func (m *MockService) NewAWSConfig() aws.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewAWSConfig")
@@ -127,13 +127,13 @@ func (m *MockService) NewAWSConfig() aws.Config {
 	return ret0
 }
 
-// NewAWSConfig indicates an expected call of NewAWSConfig
+// NewAWSConfig indicates an expected call of NewAWSConfig.
 func (mr *MockServiceMockRecorder) NewAWSConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAWSConfig", reflect.TypeOf((*MockService)(nil).NewAWSConfig))
 }
 
-// NewAWSSessionV1 mocks base method
+// NewAWSSessionV1 mocks base method.
 func (m *MockService) NewAWSSessionV1() *session.Session {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewAWSSessionV1")
@@ -141,8 +141,48 @@ func (m *MockService) NewAWSSessionV1() *session.Session {
 	return ret0
 }
 
-// NewAWSSessionV1 indicates an expected call of NewAWSSessionV1
+// NewAWSSessionV1 indicates an expected call of NewAWSSessionV1.
 func (mr *MockServiceMockRecorder) NewAWSSessionV1() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAWSSessionV1", reflect.TypeOf((*MockService)(nil).NewAWSSessionV1))
+}
+
+// NewBuildEntityName mocks base method.
+func (m *MockService) NewBuildEntityName(name string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewBuildEntityName", name)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NewBuildEntityName indicates an expected call of NewBuildEntityName.
+func (mr *MockServiceMockRecorder) NewBuildEntityName(name interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBuildEntityName", reflect.TypeOf((*MockService)(nil).NewBuildEntityName), name)
+}
+
+// Product mocks base method.
+func (m *MockService) Product() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Product")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Product indicates an expected call of Product.
+func (mr *MockServiceMockRecorder) Product() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Product", reflect.TypeOf((*MockService)(nil).Product))
+}
+
+// StartLambda mocks base method.
+func (m *MockService) StartLambda() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StartLambda")
+}
+
+// StartLambda indicates an expected call of StartLambda.
+func (mr *MockServiceMockRecorder) StartLambda() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartLambda", reflect.TypeOf((*MockService)(nil).StartLambda))
 }

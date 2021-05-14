@@ -9,8 +9,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
+////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// LambdaMaxRunTime is the max lambda run time before a forced kill.
+	// It has leeway to complete all service things.
+	LambdaMaxRunTime = 22751 * time.Millisecond
+	// LambdaMaxRunTimeInclusive is the max inclusive lambda run time before
+	// a forced kill.
+	LambdaMaxRunTimeInclusive = 1501 * time.Millisecond
+)
+
+////////////////////////////////////////////////////////////////////////////////
 type Config struct {
 	SS struct {
 		Service ServiceConfig `json:"service"`
@@ -58,11 +71,11 @@ type AWSConfig struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Build struct {
-	Version    string `json:"version"`
-	Commit     string `json:"commit"`
-	ID         string `json:"id"`
-	Builder    string `json:"builder"`
-	Maintainer string `json:"maintainer"`
+	Version    string `json:"version"`    // verbose product version
+	Commit     string `json:"commit"`     // full repository commid ID
+	ID         string `json:"id"`         // verbose shot build ID to compare
+	Builder    string `json:"builder"`    // build ID on builder
+	Maintainer string `json:"maintainer"` // person who started build
 }
 
 // IsProd returns true if build is production.
@@ -71,12 +84,9 @@ func (build Build) IsProd() bool { return build.Version != "dev" }
 ////////////////////////////////////////////////////////////////////////////////
 
 type logConfig struct {
-	Sentry string `json:"sentry,omitempty"`
-	Loggly string `json:"loggly,omitempty"`
-	Logzio *struct {
-		Token string `json:"token"`
-		URL   string `json:"url"`
-	} `json:"logzio,omitempty"`
+	Sentry     string `json:"sentry,omitempty"`
+	Loggly     string `json:"loggly,omitempty"`
+	Logzio     string `json:"logzio,omitempty"`
 	Papertrail string `json:"papertrail,omitempty"`
 }
 
@@ -124,7 +134,7 @@ type FirebaseConfig struct {
 
 func (config FirebaseConfig) GetJSON() []byte {
 	if config.value == nil {
-		S.Log().Panic(`Firebase config is not set.`)
+		S.Log().Panic(NewLogMsg(`Firebase config is not set`))
 	}
 	return config.value
 }
@@ -151,7 +161,7 @@ type RSAPrivateKey struct {
 
 func (key RSAPrivateKey) Get() *rsa.PrivateKey {
 	if key.value == nil {
-		S.Log().Panic(`RSA key is not set.`)
+		S.Log().Panic(NewLogMsg(`RSA key is not set`))
 	}
 	return key.value
 }

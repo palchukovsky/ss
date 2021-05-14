@@ -22,16 +22,21 @@ func getIndexProjection(records ...ddb.IndexRecord) *dynamodb.Projection {
 		if table != record.GetTable() {
 			if table != "" {
 				ss.S.Log().Panic(
-					"Wrong table to get index field list, was %q but now %q.",
-					table, record.GetTable())
+					ss.NewLogMsg(
+						"wrong table to get index field list, was %q but now %q",
+						table,
+						record.GetTable()))
 			}
 			table = record.GetTable()
 		}
 		if index != record.GetIndex() {
 			if index != "" {
 				ss.S.Log().Panic(
-					"Wrong table %q index to get index field list, was %q but now %q.",
-					table, index, record.GetIndex())
+					ss.NewLogMsg(
+						"wrong table %q index to get index field list, was %q but now %q",
+						table,
+						index,
+						record.GetIndex()))
 			}
 			index = record.GetIndex()
 		}

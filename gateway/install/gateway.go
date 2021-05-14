@@ -16,6 +16,7 @@ type Gateway interface {
 	Log() ss.LogStream
 
 	Create(Client) error
+	Delete(Client) error
 }
 
 // NewGateway creates new gateway instance.
@@ -34,6 +35,23 @@ func NewGateway(
 			ss.
 				NewLogMsg(`failed to read API commands directory to build gateway`).
 				AddErr(err))
+	}
+
+	{
+		connect, err := newWSConnectCommand(log)
+		if err != nil {
+			log.Panic(
+				ss.NewLogMsg(`failed to create API command "connect"`).AddErr(err))
+		}
+		commands = append(commands, connect)
+	}
+	{
+		disconnect, err := newWSDesconnectCommand(log)
+		if err != nil {
+			log.Panic(
+				ss.NewLogMsg(`failed to create API command "discconnect"`).AddErr(err))
+		}
+		commands = append(commands, disconnect)
 	}
 
 	return gateway{
@@ -115,6 +133,20 @@ func (gateway gateway) Create(client Client) error {
 				commad.GetName(),
 				err)
 		}
+	}
+	return nil
+}
+
+func (gateway gateway) Delete(client Client) error {
+	gatewayClient := client.NewGatewayClient(gateway.id)
+	if err := gatewayClient.DeleteRoutes(); err != nil {
+		return err
+	}
+	if err := gatewayClient.DeleteAuthorizers(); err != nil {
+		return err
+	}
+	if err := gatewayClient.DeleteModels(); err != nil {
+		return err
 	}
 	return nil
 }

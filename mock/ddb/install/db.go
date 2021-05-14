@@ -5,35 +5,36 @@
 package mock_ddbinstall
 
 import (
+	reflect "reflect"
+
 	dynamodb "github.com/aws/aws-sdk-go/service/dynamodb"
 	gomock "github.com/golang/mock/gomock"
-	reflect "reflect"
 )
 
-// MockDB is a mock of DB interface
+// MockDB is a mock of DB interface.
 type MockDB struct {
 	ctrl     *gomock.Controller
 	recorder *MockDBMockRecorder
 }
 
-// MockDBMockRecorder is the mock recorder for MockDB
+// MockDBMockRecorder is the mock recorder for MockDB.
 type MockDBMockRecorder struct {
 	mock *MockDB
 }
 
-// NewMockDB creates a new mock instance
+// NewMockDB creates a new mock instance.
 func NewMockDB(ctrl *gomock.Controller) *MockDB {
 	mock := &MockDB{ctrl: ctrl}
 	mock.recorder = &MockDBMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDB) EXPECT() *MockDBMockRecorder {
 	return m.recorder
 }
 
-// CreateTable mocks base method
+// CreateTable mocks base method.
 func (m *MockDB) CreateTable(arg0 dynamodb.CreateTableInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTable", arg0)
@@ -41,13 +42,27 @@ func (m *MockDB) CreateTable(arg0 dynamodb.CreateTableInput) error {
 	return ret0
 }
 
-// CreateTable indicates an expected call of CreateTable
+// CreateTable indicates an expected call of CreateTable.
 func (mr *MockDBMockRecorder) CreateTable(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTable", reflect.TypeOf((*MockDB)(nil).CreateTable), arg0)
 }
 
-// DescribeTable mocks base method
+// DeleteTable mocks base method.
+func (m *MockDB) DeleteTable(arg0 dynamodb.DeleteTableInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTable", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTable indicates an expected call of DeleteTable.
+func (mr *MockDBMockRecorder) DeleteTable(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTable", reflect.TypeOf((*MockDB)(nil).DeleteTable), arg0)
+}
+
+// DescribeTable mocks base method.
 func (m *MockDB) DescribeTable(arg0 dynamodb.DescribeTableInput) (dynamodb.DescribeTableOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DescribeTable", arg0)
@@ -56,13 +71,13 @@ func (m *MockDB) DescribeTable(arg0 dynamodb.DescribeTableInput) (dynamodb.Descr
 	return ret0, ret1
 }
 
-// DescribeTable indicates an expected call of DescribeTable
+// DescribeTable indicates an expected call of DescribeTable.
 func (mr *MockDBMockRecorder) DescribeTable(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTable", reflect.TypeOf((*MockDB)(nil).DescribeTable), arg0)
 }
 
-// UpdateTable mocks base method
+// UpdateTable mocks base method.
 func (m *MockDB) UpdateTable(arg0 dynamodb.UpdateTableInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateTable", arg0)
@@ -70,13 +85,13 @@ func (m *MockDB) UpdateTable(arg0 dynamodb.UpdateTableInput) error {
 	return ret0
 }
 
-// UpdateTable indicates an expected call of UpdateTable
+// UpdateTable indicates an expected call of UpdateTable.
 func (mr *MockDBMockRecorder) UpdateTable(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTable", reflect.TypeOf((*MockDB)(nil).UpdateTable), arg0)
 }
 
-// UpdateTimeToLive mocks base method
+// UpdateTimeToLive mocks base method.
 func (m *MockDB) UpdateTimeToLive(arg0 dynamodb.UpdateTimeToLiveInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateTimeToLive", arg0)
@@ -84,27 +99,13 @@ func (m *MockDB) UpdateTimeToLive(arg0 dynamodb.UpdateTimeToLiveInput) error {
 	return ret0
 }
 
-// UpdateTimeToLive indicates an expected call of UpdateTimeToLive
+// UpdateTimeToLive indicates an expected call of UpdateTimeToLive.
 func (mr *MockDBMockRecorder) UpdateTimeToLive(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTimeToLive", reflect.TypeOf((*MockDB)(nil).UpdateTimeToLive), arg0)
 }
 
-// DeleteTable mocks base method
-func (m *MockDB) DeleteTable(arg0 dynamodb.DeleteTableInput) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTable", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteTable indicates an expected call of DeleteTable
-func (mr *MockDBMockRecorder) DeleteTable(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTable", reflect.TypeOf((*MockDB)(nil).DeleteTable), arg0)
-}
-
-// WaitTable mocks base method
+// WaitTable mocks base method.
 func (m *MockDB) WaitTable(arg0 dynamodb.DescribeTableInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WaitTable", arg0)
@@ -112,13 +113,13 @@ func (m *MockDB) WaitTable(arg0 dynamodb.DescribeTableInput) error {
 	return ret0
 }
 
-// WaitTable indicates an expected call of WaitTable
+// WaitTable indicates an expected call of WaitTable.
 func (mr *MockDBMockRecorder) WaitTable(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitTable", reflect.TypeOf((*MockDB)(nil).WaitTable), arg0)
 }
 
-// WaitUntilTableNotExists mocks base method
+// WaitUntilTableNotExists mocks base method.
 func (m *MockDB) WaitUntilTableNotExists(arg0 dynamodb.DescribeTableInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WaitUntilTableNotExists", arg0)
@@ -126,7 +127,7 @@ func (m *MockDB) WaitUntilTableNotExists(arg0 dynamodb.DescribeTableInput) error
 	return ret0
 }
 
-// WaitUntilTableNotExists indicates an expected call of WaitUntilTableNotExists
+// WaitUntilTableNotExists indicates an expected call of WaitUntilTableNotExists.
 func (mr *MockDBMockRecorder) WaitUntilTableNotExists(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitUntilTableNotExists", reflect.TypeOf((*MockDB)(nil).WaitUntilTableNotExists), arg0)

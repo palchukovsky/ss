@@ -32,7 +32,7 @@ func (table connection) Setup() error {
 	if err != nil {
 		return err
 	}
-	return table.EnableTimeToLive("expired")
+	return table.EnableTimeToLive("expiration")
 }
 
 func (connection) InsertData() error { return nil }

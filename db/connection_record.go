@@ -63,7 +63,7 @@ type Connection struct {
 	connectionRecord
 	ID             ss.ConnectionID `json:"id"`
 	User           ss.UserID       `json:"user"`
-	ExpirationTime ddb.Time        `json:"expired"`
+	ExpirationTime ddb.Time        `json:"expiration"`
 }
 
 // NewConnection creates new connection record.

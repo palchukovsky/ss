@@ -21,6 +21,16 @@ type Gateway interface {
 }
 
 // NewGateway creates new gateway instance.
+func NewAppGateway(log ss.LogStream) Gateway {
+	return NewGateway(
+		ss.S.Config().AWS.Gateway.App.ID,
+		"app",
+		NewGatewayCommadsReader(NewWSCommand),
+		log,
+	)
+}
+
+// NewGateway creates new gateway instance.
 func NewGateway(
 	id string,
 	name string,

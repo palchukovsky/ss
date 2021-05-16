@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/palchukovsky/ss"
 )
@@ -16,7 +17,7 @@ type Gateway interface {
 	GetName() string
 	Log() ss.LogStream
 
-	Create(Client) error
+	Create(sourcePath string, client Client) error
 	Delete(Client) error
 	Deploy(Client) error
 }
@@ -49,12 +50,17 @@ type GatewayCommadsReader interface {
 }
 
 func newGatewayCommandsReader(
+	sourcePath string,
 	newCommand func(name, path string, log ss.LogStream) (command, error),
 ) GatewayCommadsReader {
-	return gatewayCommadsReader{newCommand: newCommand}
+	return gatewayCommadsReader{
+		sourcePath: sourcePath,
+		newCommand: newCommand,
+	}
 }
 
 type gatewayCommadsReader struct {
+	sourcePath string
 	newCommand func(name, path string, log ss.LogStream) (command, error)
 }
 
@@ -64,8 +70,14 @@ func (reader gatewayCommadsReader) Read(
 ) ([]command, error) {
 	result := []command{}
 
+	sourcePath := reader.sourcePath
+	if !strings.HasSuffix(sourcePath, "/") {
+		sourcePath += "/"
+	}
+	sourcePath += "cmd/lambda/api/" + name
+
 	err := filepath.Walk(
-		"cmd/lambda/api/"+name,
+		sourcePath,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -103,9 +115,9 @@ type gateway struct {
 func (gateway gateway) GetName() string   { return gateway.name }
 func (gateway gateway) Log() ss.LogStream { return gateway.log }
 
-func (gateway gateway) Create(client Client) error {
+func (gateway gateway) Create(sourcePath string, client Client) error {
 	gatewayClient := client.NewGatewayClient(gateway.id)
-	for _, commad := range gateway.readCommads() {
+	for _, commad := range gateway.readCommads(sourcePath) {
 		if err := commad.Create(gatewayClient); err != nil {
 			return fmt.Errorf(`failed to create commad %q/%q: "%w"`,
 				gateway.name,
@@ -133,8 +145,8 @@ func (gateway gateway) Delete(client Client) error {
 func (gateway gateway) Deploy(client Client) error {
 	return client.NewGatewayClient(gateway.id).Deploy()
 }
-func (gateway *gateway) readCommads() []command {
-	reader := newGatewayCommandsReader(newWSCommand)
+func (gateway *gateway) readCommads(sourcePath string) []command {
+	reader := newGatewayCommandsReader(sourcePath, newWSCommand)
 
 	result, err := reader.Read(gateway.name, gateway.log)
 	if err != nil {

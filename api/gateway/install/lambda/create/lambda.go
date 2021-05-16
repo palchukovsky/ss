@@ -15,7 +15,7 @@ func Init(
 	initService("install", ss.ServiceParams{})
 }
 
-func Run(installer api.Installer) {
+func Run(installer api.Installer, sourcePath string) {
 	log := ss.S.Log()
 	defer func() { log.CheckExit(recover()) }()
 	log.Started()
@@ -25,7 +25,7 @@ func Run(installer api.Installer) {
 	err := api.ForEachGateway(
 		installer,
 		func(gateway install.Gateway) error {
-			if err := gateway.Create(client); err != nil {
+			if err := gateway.Create(sourcePath, client); err != nil {
 				return err
 			}
 			return gateway.Deploy(client)

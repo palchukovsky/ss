@@ -74,7 +74,7 @@ func (reader gatewayCommadsReader) Read(
 	if !strings.HasSuffix(sourcePath, "/") {
 		sourcePath += "/"
 	}
-	sourcePath += "cmd/lambda/api/" + name
+	sourcePath += "cmd/lambda/api/" + name + "/"
 
 	err := filepath.Walk(
 		sourcePath,
@@ -83,11 +83,29 @@ func (reader gatewayCommadsReader) Read(
 				return err
 			}
 
-			command, err := reader.newCommand(info.Name(), path, log)
-			if err != nil {
-				return fmt.Errorf(`failed to create commad %q: "%w"`, path, err)
+			if !info.IsDir() {
+				return nil
 			}
-			command.Log().Info(ss.NewLogMsg("found command by path %q", path))
+			if _, err := os.Stat(path + "/model.json"); os.IsNotExist(err) {
+				return nil
+			}
+
+			name := strings.TrimPrefix(path, sourcePath)
+			name = strings.ReplaceAll(name, "/", " ")
+			name = strings.ReplaceAll(name, "_", " ")
+			name = strings.Title(name)
+			name = strings.ReplaceAll(name, " ", "")
+
+			command, err := reader.newCommand(name, path, log)
+			if err != nil {
+				return fmt.Errorf(
+					`failed to create commad %q by path %q: "%w"`,
+					name,
+					path,
+					err)
+			}
+			command.Log().Info(
+				ss.NewLogMsg("found command %q by path %q", name, path))
 
 			result = append(result, command)
 			return nil

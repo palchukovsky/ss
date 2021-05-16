@@ -6,7 +6,6 @@ package gatewayinstall
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"github.com/palchukovsky/ss"
 )
@@ -45,13 +44,7 @@ func newWSCommand(
 	path string,
 	log ss.LogStream,
 ) (command, error) {
-
-	name = strings.ReplaceAll(name, "_", " ")
-	name = strings.Title(name)
-	name = strings.ReplaceAll(name, " ", "")
-
 	command, err := newCommand(name, log)
-
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +87,9 @@ func (command wsCommand) createModel(
 	schema, err := ioutil.ReadFile(modelFile)
 	if err != nil {
 		return "",
-			fmt.Errorf(`failed to read model %q schema from %q: "%w"`,
-				command.name,
+			fmt.Errorf(`failed to read model schema from %q for command %q: "%w"`,
 				modelFile,
+				command.name,
 				err)
 	}
 	if len(schema) == 0 {

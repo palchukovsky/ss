@@ -5,6 +5,7 @@ package gatewayinstall
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -25,75 +26,43 @@ func NewAppGateway(log ss.LogStream) Gateway {
 	return NewGateway(
 		ss.S.Config().AWS.Gateway.App.ID,
 		"app",
-		NewGatewayCommadsReader(NewWSCommand),
-		log,
-	)
+		log)
 }
 
 // NewGateway creates new gateway instance.
 func NewGateway(
 	id string,
 	name string,
-	reader GatewayCommadsReader,
 	log ss.LogStream,
 ) Gateway {
-
-	log = log.NewSession(ss.NewLogPrefix().AddVal("gateway", name))
-
-	commands, err := reader.Read(name, log)
-	if err != nil {
-		log.Panic(
-			ss.
-				NewLogMsg(`failed to read API commands directory to build gateway`).
-				AddErr(err))
-	}
-
-	{
-		connect, err := newWSConnectCommand(log)
-		if err != nil {
-			log.Panic(
-				ss.NewLogMsg(`failed to create API command "connect"`).AddErr(err))
-		}
-		commands = append(commands, connect)
-	}
-	{
-		disconnect, err := newWSDesconnectCommand(log)
-		if err != nil {
-			log.Panic(
-				ss.NewLogMsg(`failed to create API command "discconnect"`).AddErr(err))
-		}
-		commands = append(commands, disconnect)
-	}
-
 	return gateway{
-		id:       id,
-		name:     name,
-		log:      log,
-		commands: commands,
+		id:   id,
+		name: name,
+		log:  log.NewSession(ss.NewLogPrefix().AddVal("gateway", name)),
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type GatewayCommadsReader interface {
-	Read(name string, log ss.LogStream) ([]Command, error)
+	Read(name string, log ss.LogStream) ([]command, error)
 }
 
-func NewGatewayCommadsReader(
-	newCommand func(name, path string, log ss.LogStream) (Command, error),
+func newGatewayCommandsReader(
+	newCommand func(name, path string, log ss.LogStream) (command, error),
 ) GatewayCommadsReader {
 	return gatewayCommadsReader{newCommand: newCommand}
 }
 
 type gatewayCommadsReader struct {
-	newCommand func(name, path string, log ss.LogStream) (Command, error)
+	newCommand func(name, path string, log ss.LogStream) (command, error)
 }
 
 func (reader gatewayCommadsReader) Read(
 	name string,
 	log ss.LogStream,
-) ([]Command, error) {
-	result := []Command{}
+) ([]command, error) {
+	result := []command{}
 
 	err := filepath.Walk(
 		"cmd/lambda/api/"+name,
@@ -126,10 +95,9 @@ func (reader gatewayCommadsReader) Read(
 ////////////////////////////////////////////////////////////////////////////////
 
 type gateway struct {
-	id       string
-	name     string
-	log      ss.LogStream
-	commands []Command
+	id   string
+	name string
+	log  ss.LogStream
 }
 
 func (gateway gateway) GetName() string   { return gateway.name }
@@ -137,7 +105,7 @@ func (gateway gateway) Log() ss.LogStream { return gateway.log }
 
 func (gateway gateway) Create(client Client) error {
 	gatewayClient := client.NewGatewayClient(gateway.id)
-	for _, commad := range gateway.commands {
+	for _, commad := range gateway.readCommads() {
 		if err := commad.Create(gatewayClient); err != nil {
 			return fmt.Errorf(`failed to create commad %q/%q: "%w"`,
 				gateway.name,
@@ -164,4 +132,34 @@ func (gateway gateway) Delete(client Client) error {
 
 func (gateway gateway) Deploy(client Client) error {
 	return client.NewGatewayClient(gateway.id).Deploy()
+}
+func (gateway *gateway) readCommads() []command {
+	reader := newGatewayCommandsReader(newWSCommand)
+
+	result, err := reader.Read(gateway.name, gateway.log)
+	if err != nil {
+		log.Panic(
+			ss.
+				NewLogMsg(`failed to read API commands directory to build gateway`).
+				AddErr(err))
+	}
+
+	{
+		connect, err := newWSConnectCommand(gateway.log)
+		if err != nil {
+			log.Panic(
+				ss.NewLogMsg(`failed to create API command "connect"`).AddErr(err))
+		}
+		result = append(result, connect)
+	}
+	{
+		disconnect, err := newWSDesconnectCommand(gateway.log)
+		if err != nil {
+			log.Panic(
+				ss.NewLogMsg(`failed to create API command "discconnect"`).AddErr(err))
+		}
+		result = append(result, disconnect)
+	}
+
+	return result
 }

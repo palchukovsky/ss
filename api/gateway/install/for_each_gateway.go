@@ -20,7 +20,7 @@ func ForEachGateway(
 
 	gateways := installer.NewGateways(log)
 	if id := ss.S.Config().AWS.Gateway.App.ID; id != "" {
-		gateways = append(gateways, newAppGateway(id, log))
+		gateways = append(gateways, gatewayinstall.NewGateway(id, "app", log))
 	}
 
 	for _, gateway := range gateways {

@@ -4,7 +4,6 @@
 package gatewayinstall
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -12,7 +11,7 @@ import (
 	"github.com/palchukovsky/ss"
 )
 
-type Command interface {
+type command interface {
 	GetName() string
 	Log() ss.LogStream
 
@@ -21,7 +20,7 @@ type Command interface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type command struct {
+type abstractCommand struct {
 	name string
 	log  ss.LogStream
 }
@@ -29,45 +28,23 @@ type command struct {
 func newCommand(
 	name string,
 	log ss.LogStream,
-) (command, error) {
-	result := command{name: name}
+) (abstractCommand, error) {
+	result := abstractCommand{name: name}
 	result.log = log.NewSession(
 		ss.NewLogPrefix().AddVal("gatewayCommand", result.name))
 	return result, nil
 }
 
-func (command command) GetName() string   { return command.name }
-func (command command) Log() ss.LogStream { return command.log }
-
-////////////////////////////////////////////////////////////////////////////////
-
-// NewRESTCommand creates command implementation to work with REST-gateways.
-func NewRESTCommand(
-	name string,
-	path string,
-	log ss.LogStream,
-) (Command, error) {
-	command, err := newCommand(name, log)
-	if err != nil {
-		return nil, err
-	}
-	return restCommand{command: command}, nil
-}
-
-type restCommand struct{ command }
-
-func (restCommand) Create(client GatewayClient) error {
-	return errors.New("not implemented")
-}
+func (command abstractCommand) GetName() string   { return command.name }
+func (command abstractCommand) Log() ss.LogStream { return command.log }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-//NewWSCommand creates command implementation to work with websockets gateways.
-func NewWSCommand(
+func newWSCommand(
 	name string,
 	path string,
 	log ss.LogStream,
-) (Command, error) {
+) (command, error) {
 
 	name = strings.ReplaceAll(name, "_", " ")
 	name = strings.Title(name)
@@ -79,14 +56,14 @@ func NewWSCommand(
 		return nil, err
 	}
 	return wsCommand{
-			command: command,
-			path:    path,
+			abstractCommand: command,
+			path:            path,
 		},
 		nil
 }
 
 type wsCommand struct {
-	command
+	abstractCommand
 	path string
 }
 
@@ -139,15 +116,15 @@ func (command wsCommand) createModel(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newWSConnectCommand(log ss.LogStream) (Command, error) {
+func newWSConnectCommand(log ss.LogStream) (command, error) {
 	command, err := newCommand("$connect", log)
 	if err != nil {
 		return nil, err
 	}
-	return wsConnectCommand{command: command}, nil
+	return wsConnectCommand{abstractCommand: command}, nil
 }
 
-type wsConnectCommand struct{ command }
+type wsConnectCommand struct{ abstractCommand }
 
 func (command wsConnectCommand) Create(client GatewayClient) error {
 	return command.createRoute(client)
@@ -164,15 +141,15 @@ func (command wsConnectCommand) createRoute(client GatewayClient) error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newWSDesconnectCommand(log ss.LogStream) (Command, error) {
+func newWSDesconnectCommand(log ss.LogStream) (command, error) {
 	command, err := newCommand("$disconnect", log)
 	if err != nil {
 		return nil, err
 	}
-	return wsDesconnectCommand{command: command}, nil
+	return wsDesconnectCommand{abstractCommand: command}, nil
 }
 
-type wsDesconnectCommand struct{ command }
+type wsDesconnectCommand struct{ abstractCommand }
 
 func (command wsDesconnectCommand) Create(client GatewayClient) error {
 	return command.createRoute(client)

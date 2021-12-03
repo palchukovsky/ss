@@ -80,6 +80,10 @@ func (id EntityID) MarshalDynamoDBAttributeValue(
 func (id *EntityID) UnmarshalDynamoDBAttributeValue(
 	source *dynamodb.AttributeValue,
 ) error {
+	if source.S != nil {
+		// Entity ID could be represent as text.
+		return id.UnmarshalText([]byte(*source.S))
+	}
 	return id.UnmarshalBinary(source.B)
 }
 

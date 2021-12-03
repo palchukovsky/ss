@@ -3,8 +3,14 @@
 
 package ss
 
-type NoCopy struct{}
+// Lock is a no-op used by -copylocks checker from `go vet`.
+type NoCopy interface {
+	Lock()
+	Unlock()
+}
 
 // Lock is a no-op used by -copylocks checker from `go vet`.
-func (*NoCopy) Lock()   {}
-func (*NoCopy) Unlock() {}
+type NoCopyImpl struct{}
+
+func (*NoCopyImpl) Lock()   {}
+func (*NoCopyImpl) Unlock() {}

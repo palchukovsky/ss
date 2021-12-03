@@ -15,22 +15,30 @@ import (
 // CreateTrans describes the part of WriteTrans witch builds create-expression.
 type CreateTrans interface {
 	WriteTransExpression
+	Values(Values) CreateTrans
+	Value(name string, value interface{}) CreateTrans
+	Alias(name, value string) CreateTrans
+	Condition(string) CreateTrans
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 func (trans *writeTrans) Create(record DataRecord) CreateTrans {
 	result := trans.newCreateTrans(record)
-	result.input.ConditionExpression = aws.String(fmt.Sprintf(
-		"attribute_not_exists(%s)",
-		aliasReservedWord(
-			record.GetKeyPartitionField(),
-			&result.input.ExpressionAttributeNames)))
+	result.Condition(
+		fmt.Sprintf("attribute_not_exists(%s)", record.GetKeyPartitionField()))
 	return result
 }
 
-func (trans *writeTrans) CreateOrUpdate(record DataRecord) CreateTrans {
+func (trans *writeTrans) CreateOrReplace(record DataRecord) CreateTrans {
 	return trans.newCreateTrans(record)
+}
+
+func (trans *writeTrans) Replace(record DataRecord) CreateTrans {
+	result := trans.newCreateTrans(record)
+	result.Condition(
+		fmt.Sprintf("attribute_exists(%s)", record.GetKeyPartitionField()))
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,25 +48,55 @@ type createTrans struct {
 	input *dynamodb.Put
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-func (trans *writeTrans) newCreateTrans(record DataRecord) createTrans {
+func (trans *writeTrans) newCreateTrans(record DataRecord) *createTrans {
 	input := &dynamodb.Put{
 		TableName: aws.String(ss.S.NewBuildEntityName(record.GetTable())),
 	}
 	result := createTrans{
 		writeTransExpression: newWriteTransExpression(
-			trans, dynamodb.TransactWriteItem{Put: input}),
+			trans,
+			dynamodb.TransactWriteItem{Put: input}),
 		input: input,
 	}
-	result.input.Item, trans.err = dynamodbattribute.MarshalMap(record.GetData())
-	if trans.err != nil {
-		trans.err = fmt.Errorf(
-			`failed to serialize item to put into table %q: "%w"`,
-			record.GetTable(),
-			trans.err)
+	var err error
+	result.input.Item, err = dynamodbattribute.MarshalMap(record.GetData())
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					"failed to serialize item to put into table %q",
+					record.GetTable()).
+				AddDump(record).
+				AddDump(input).
+				AddErr(err))
 	}
-	return result
+	return &result
+}
+
+func (trans *createTrans) Values(values Values) CreateTrans {
+	trans.marshalValues(values, &trans.input.ExpressionAttributeValues)
+	return trans
+}
+
+func (trans *createTrans) Value(name string, value interface{}) CreateTrans {
+	return trans.Values(Values{name: value})
+}
+
+func (trans *createTrans) Alias(name, value string) CreateTrans {
+	trans.addAlias(name, value, &trans.input.ExpressionAttributeNames)
+	return trans
+}
+
+func (trans *createTrans) Condition(condition string) CreateTrans {
+	condition = "(" +
+		*aliasReservedInString(condition, &trans.input.ExpressionAttributeNames) +
+		")"
+	if trans.input.ConditionExpression == nil {
+		trans.input.ConditionExpression = &condition
+	} else {
+		*trans.input.ConditionExpression += " and " + condition
+	}
+	return trans
 }
 
 ////////////////////////////////////////////////////////////////////////////////

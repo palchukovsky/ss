@@ -5,6 +5,7 @@ package ddb
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -14,118 +15,174 @@ import (
 
 // Update describes the interface to update one record by key.
 type Update interface {
+	ss.NoCopy
+
+	Set(expression string) Update
+	Remove(fieldName string) Update
+	Expression(expression string) Update
+
 	Values(Values) Update
+	Value(name string, value interface{}) Update
+
+	Alias(name, value string) Update
+
 	Condition(string) Update
-	Request() (bool, error)
-	RequestAndReturn(RecordBuffer) (bool, error)
+
+	// Request executed request and return false if failed to find a record
+	// or of added conditions are failed.
+	Request() bool
+	// RequestAndReturn executed request and return false if failed to find
+	// a record or of added conditions are failed.
+	RequestAndReturn(RecordBuffer) bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func (client client) Update(key KeyRecord, updateExp string) Update {
-	result := newUpdateTemplate(client.db, key, updateExp)
-	if result.err != nil {
-		return result
-	}
-	if result.err = result.SetKey(key.GetKey()); result.err != nil {
-		return result
-	}
+func (client *client) Update(key KeyRecord) Update {
+	result := newUpdateTemplate(client.db, key)
+	result.SetKey(key.GetKey())
 	return result
 }
 
-func newUpdateTemplate(db *dynamodb.DynamoDB, record Record, updateExp string,
-) update {
+func newUpdateTemplate(
+	db *dynamodb.DynamoDB,
+	record Record,
+) *update {
 	result := update{
 		db: db,
-		input: dynamodb.UpdateItemInput{
-			TableName:        aws.String(ss.S.NewBuildEntityName(record.GetTable())),
-			UpdateExpression: aws.String(updateExp),
+		Input: dynamodb.UpdateItemInput{
+			TableName: aws.String(ss.S.NewBuildEntityName(record.GetTable())),
 		},
 	}
-	result.input.UpdateExpression = aliasReservedInString(updateExp,
-		&result.input.ExpressionAttributeNames)
-	result.input.ConditionExpression = aws.String(fmt.Sprintf(
-		"attribute_exists(%s)", aliasReservedWord(
-			record.GetKeyPartitionField(), &result.input.ExpressionAttributeNames)))
-	return result
+	result.Input.ConditionExpression = aws.String(
+		fmt.Sprintf(
+			"attribute_exists(%s)",
+			aliasReservedWord(
+				record.GetKeyPartitionField(),
+				&result.Input.ExpressionAttributeNames)))
+	return &result
 }
 
 type update struct {
-	db    *dynamodb.DynamoDB
-	input dynamodb.UpdateItemInput
-	err   error
+	ss.NoCopyImpl
+
+	db      *dynamodb.DynamoDB       `json:"-"`
+	Input   dynamodb.UpdateItemInput `json:"input"`
+	Expr    string                   `json:"expression"`
+	Sets    []string                 `json:"sets"`
+	Removes []string                 `json:"removes"`
 }
 
-func (update update) Values(values Values) Update {
-	if update.err != nil {
-		return update
+func (update *update) Set(expression string) Update {
+	update.Sets = append(update.Sets, expression)
+	return update
+}
+
+func (update *update) Remove(fieldName string) Update {
+	update.Removes = append(update.Removes, fieldName)
+	return update
+}
+
+func (update *update) Expression(expression string) Update {
+	if update.Expr != "" {
+		update.Expr += " "
 	}
-	update.input.ExpressionAttributeValues, update.err = values.Marshal()
-	if update.err != nil {
-		update.err = fmt.Errorf(
-			`failed to serialize values to update table %q: "%w", values: "%v"`,
-			update.getTable(), update.err, values)
+	update.Expr += expression
+	return update
+}
+
+func (update *update) Values(values Values) Update {
+	values.Marshal(&update.Input.ExpressionAttributeValues)
+	return update
+}
+
+func (update *update) Value(name string, value interface{}) Update {
+	return update.Values(Values{name: value})
+}
+
+func (update *update) Alias(name, value string) Update {
+	if update.Input.ExpressionAttributeNames == nil {
+		update.Input.ExpressionAttributeNames = map[string]*string{
+			name: aws.String(value),
+		}
+	} else {
+		update.Input.ExpressionAttributeNames[name] = aws.String(value)
 	}
 	return update
 }
 
-func (update update) Condition(condition string) Update {
-	*update.input.ConditionExpression += " and " +
-		*aliasReservedInString(condition, &update.input.ExpressionAttributeNames)
+func (update *update) Condition(condition string) Update {
+	*update.Input.ConditionExpression += " and (" +
+		*aliasReservedInString(condition, &update.Input.ExpressionAttributeNames) +
+		")"
 	return update
 }
 
-func (update update) Request() (bool, error) {
-	output, err := update.request()
-	return output != nil, err
+func (update *update) Request() bool {
+	output := update.request()
+	return output != nil
 }
 
-func (update update) RequestAndReturn(result RecordBuffer) (bool, error) {
-	update.input.ReturnValues = aws.String(dynamodb.ReturnValueAllNew)
-	output, err := update.request()
-	if err != nil || output == nil {
-		return false, err
+func (update *update) RequestAndReturn(result RecordBuffer) bool {
+	update.Input.ReturnValues = aws.String(dynamodb.ReturnValueAllNew)
+	output := update.request()
+	if output == nil {
+		return false
 	}
-	err = dynamodbattribute.UnmarshalMap(output.Attributes, result)
+	err := dynamodbattribute.UnmarshalMap(output.Attributes, result)
 	if err != nil {
-		return false,
-			fmt.Errorf(
-				`failed to read update response from table %q: "%w"`,
-				update.getTable(),
-				err)
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					"failed to read update response from table %q",
+					update.getTable()).
+				AddErr(err))
 	}
-	return true, nil
+	return true
 }
 
-func (update update) request() (*dynamodb.UpdateItemOutput, error) {
-	if update.err != nil {
-		return nil, update.err
+func (update *update) request() *dynamodb.UpdateItemOutput {
+	{
+		expression := make([]string, 0, 3)
+		if update.Expr != "" {
+			expression = append(expression, update.Expr)
+		}
+		if sets := strings.Join(update.Sets, ","); sets != "" {
+			expression = append(expression, "set "+sets)
+		}
+		if removes := strings.Join(update.Removes, ","); removes != "" {
+			expression = append(expression, "remove "+removes)
+		}
+		update.Input.UpdateExpression = aliasReservedInString(
+			strings.Join(expression, " "),
+			&update.Input.ExpressionAttributeNames)
 	}
-	request, result := update.db.UpdateItemRequest(&update.input)
+	request, result := update.db.UpdateItemRequest(&update.Input)
 	if err := request.Send(); err != nil {
 		if IsConditionalCheckError(err) {
 			// no error, but not found
-			return nil, nil
+			return nil
 		}
-		return nil,
-			fmt.Errorf(
-				`failed to update item in table %q: "%w"`,
-				update.getTable(),
-				err)
+		if err != nil {
+			ss.S.Log().Panic(
+				ss.NewLogMsg("failed to update item in table %q", update.getTable()).
+					AddErr(err))
+		}
 	}
-	return result, nil
+	return result
 }
 
-func (update *update) SetKey(source interface{}) error {
+func (update *update) SetKey(source interface{}) {
 	key, err := dynamodbattribute.MarshalMap(source)
 	if err != nil {
-		return fmt.Errorf(
-			`failed to serialize key to update table %q: "%w"`,
-			update.getTable(),
-			err)
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					`failed to serialize key to update table %q`,
+					update.getTable()).
+				AddErr(err))
 	}
-	update.input.Key = key
-	return nil
+	update.Input.Key = key
 }
 
-func (update update) getTable() string { return *update.input.TableName }
+func (update *update) getTable() string { return *update.Input.TableName }

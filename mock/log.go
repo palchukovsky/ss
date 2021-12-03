@@ -11,6 +11,43 @@ import (
 	ss "github.com/palchukovsky/ss"
 )
 
+// MockLogSource is a mock of LogSource interface.
+type MockLogSource struct {
+	ctrl     *gomock.Controller
+	recorder *MockLogSourceMockRecorder
+}
+
+// MockLogSourceMockRecorder is the mock recorder for MockLogSource.
+type MockLogSourceMockRecorder struct {
+	mock *MockLogSource
+}
+
+// NewMockLogSource creates a new mock instance.
+func NewMockLogSource(ctrl *gomock.Controller) *MockLogSource {
+	mock := &MockLogSource{ctrl: ctrl}
+	mock.recorder = &MockLogSourceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLogSource) EXPECT() *MockLogSourceMockRecorder {
+	return m.recorder
+}
+
+// Log mocks base method.
+func (m *MockLogSource) Log() ss.LogStream {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Log")
+	ret0, _ := ret[0].(ss.LogStream)
+	return ret0
+}
+
+// Log indicates an expected call of Log.
+func (mr *MockLogSourceMockRecorder) Log() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockLogSource)(nil).Log))
+}
+
 // MockLogStream is a mock of LogStream interface.
 type MockLogStream struct {
 	ctrl     *gomock.Controller
@@ -32,6 +69,18 @@ func NewMockLogStream(ctrl *gomock.Controller) *MockLogStream {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLogStream) EXPECT() *MockLogStreamMockRecorder {
 	return m.recorder
+}
+
+// CheckPanic mocks base method.
+func (m *MockLogStream) CheckPanic(panicValue interface{}, errorMessage string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CheckPanic", panicValue, errorMessage)
+}
+
+// CheckPanic indicates an expected call of CheckPanic.
+func (mr *MockLogStreamMockRecorder) CheckPanic(panicValue, errorMessage interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPanic", reflect.TypeOf((*MockLogStream)(nil).CheckPanic), panicValue, errorMessage)
 }
 
 // Debug mocks base method.
@@ -70,18 +119,16 @@ func (mr *MockLogStreamMockRecorder) Info(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockLogStream)(nil).Info), arg0)
 }
 
-// NewSession mocks base method.
-func (m *MockLogStream) NewSession(arg0 ss.LogPrefix) ss.LogSession {
+// Lock mocks base method.
+func (m *MockLogStream) Lock() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSession", arg0)
-	ret0, _ := ret[0].(ss.LogSession)
-	return ret0
+	m.ctrl.Call(m, "Lock")
 }
 
-// NewSession indicates an expected call of NewSession.
-func (mr *MockLogStreamMockRecorder) NewSession(arg0 interface{}) *gomock.Call {
+// Lock indicates an expected call of Lock.
+func (mr *MockLogStreamMockRecorder) Lock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockLogStream)(nil).NewSession), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockLogStream)(nil).Lock))
 }
 
 // Panic mocks base method.
@@ -94,6 +141,18 @@ func (m *MockLogStream) Panic(arg0 *ss.LogMsg) {
 func (mr *MockLogStreamMockRecorder) Panic(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Panic", reflect.TypeOf((*MockLogStream)(nil).Panic), arg0)
+}
+
+// Unlock mocks base method.
+func (m *MockLogStream) Unlock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Unlock")
+}
+
+// Unlock indicates an expected call of Unlock.
+func (mr *MockLogStreamMockRecorder) Unlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockLogStream)(nil).Unlock))
 }
 
 // Warn mocks base method.
@@ -155,6 +214,18 @@ func (mr *MockLogMockRecorder) CheckExit(panicValue interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExit", reflect.TypeOf((*MockLog)(nil).CheckExit), panicValue)
 }
 
+// CheckPanic mocks base method.
+func (m *MockLog) CheckPanic(panicValue interface{}, errorMessage string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CheckPanic", panicValue, errorMessage)
+}
+
+// CheckPanic indicates an expected call of CheckPanic.
+func (mr *MockLogMockRecorder) CheckPanic(panicValue, errorMessage interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPanic", reflect.TypeOf((*MockLog)(nil).CheckPanic), panicValue, errorMessage)
+}
+
 // Debug mocks base method.
 func (m *MockLog) Debug(arg0 *ss.LogMsg) {
 	m.ctrl.T.Helper()
@@ -189,6 +260,18 @@ func (m *MockLog) Info(arg0 *ss.LogMsg) {
 func (mr *MockLogMockRecorder) Info(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockLog)(nil).Info), arg0)
+}
+
+// Lock mocks base method.
+func (m *MockLog) Lock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Lock")
+}
+
+// Lock indicates an expected call of Lock.
+func (mr *MockLogMockRecorder) Lock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockLog)(nil).Lock))
 }
 
 // NewSession mocks base method.
@@ -227,6 +310,18 @@ func (m *MockLog) Started() {
 func (mr *MockLogMockRecorder) Started() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Started", reflect.TypeOf((*MockLog)(nil).Started))
+}
+
+// Unlock mocks base method.
+func (m *MockLog) Unlock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Unlock")
+}
+
+// Unlock indicates an expected call of Unlock.
+func (mr *MockLogMockRecorder) Unlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockLog)(nil).Unlock))
 }
 
 // Warn mocks base method.
@@ -277,15 +372,15 @@ func (m *MockLogSession) EXPECT() *MockLogSessionMockRecorder {
 }
 
 // CheckPanic mocks base method.
-func (m *MockLogSession) CheckPanic(panicValue interface{}, getPanicDetails func() *ss.LogMsg) {
+func (m *MockLogSession) CheckPanic(panicValue interface{}, errorMessage string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CheckPanic", panicValue, getPanicDetails)
+	m.ctrl.Call(m, "CheckPanic", panicValue, errorMessage)
 }
 
 // CheckPanic indicates an expected call of CheckPanic.
-func (mr *MockLogSessionMockRecorder) CheckPanic(panicValue, getPanicDetails interface{}) *gomock.Call {
+func (mr *MockLogSessionMockRecorder) CheckPanic(panicValue, errorMessage interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPanic", reflect.TypeOf((*MockLogSession)(nil).CheckPanic), panicValue, getPanicDetails)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPanic", reflect.TypeOf((*MockLogSession)(nil).CheckPanic), panicValue, errorMessage)
 }
 
 // Debug mocks base method.
@@ -324,6 +419,18 @@ func (mr *MockLogSessionMockRecorder) Info(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockLogSession)(nil).Info), arg0)
 }
 
+// Lock mocks base method.
+func (m *MockLogSession) Lock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Lock")
+}
+
+// Lock indicates an expected call of Lock.
+func (mr *MockLogSessionMockRecorder) Lock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockLogSession)(nil).Lock))
+}
+
 // NewSession mocks base method.
 func (m *MockLogSession) NewSession(arg0 ss.LogPrefix) ss.LogSession {
 	m.ctrl.T.Helper()
@@ -348,6 +455,18 @@ func (m *MockLogSession) Panic(arg0 *ss.LogMsg) {
 func (mr *MockLogSessionMockRecorder) Panic(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Panic", reflect.TypeOf((*MockLogSession)(nil).Panic), arg0)
+}
+
+// Unlock mocks base method.
+func (m *MockLogSession) Unlock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Unlock")
+}
+
+// Unlock indicates an expected call of Unlock.
+func (mr *MockLogSessionMockRecorder) Unlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockLogSession)(nil).Unlock))
 }
 
 // Warn mocks base method.

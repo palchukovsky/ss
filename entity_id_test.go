@@ -20,7 +20,7 @@ const (
 	entityUUID     = "765f1ef0-382a-41fb-b97e-ca5354ca771a"
 )
 
-func Test_DDB_EntityID_Export(test *testing.T) {
+func Test_SS_EntityID_Export(test *testing.T) {
 	assert := assert.New(test)
 
 	id, err := ss.ParseEntityID(entityIDSource)
@@ -36,7 +36,7 @@ func Test_DDB_EntityID_Export(test *testing.T) {
 	assert.Equal(fmt.Sprintf("|%s|", entityIDSource), fmt.Sprintf("|%s|", id))
 }
 
-func Test_DDB_EntityID_ParseError(test *testing.T) {
+func Test_SS_EntityID_ParseError(test *testing.T) {
 	assert := assert.New(test)
 	{
 		id, err := ss.ParseEntityID("")
@@ -60,7 +60,7 @@ func Test_DDB_EntityID_ParseError(test *testing.T) {
 	}
 }
 
-func Test_DDB_EntityID_MarshalJSON(test *testing.T) {
+func Test_SS_EntityID_MarshalJSON(test *testing.T) {
 	assert := assert.New(test)
 
 	id, err := ss.ParseEntityID(entityIDSource)
@@ -71,7 +71,7 @@ func Test_DDB_EntityID_MarshalJSON(test *testing.T) {
 	assert.Equal(fmt.Sprintf("%q", entityIDSource), string(value))
 
 	restoredValue := &ss.EntityID{}
-	assert.Nil(json.Unmarshal(value, restoredValue))
+	assert.NoError(json.Unmarshal(value, restoredValue))
 	assert.Equal(entityIDSource, restoredValue.String())
 
 	record := struct {
@@ -85,17 +85,18 @@ func Test_DDB_EntityID_MarshalJSON(test *testing.T) {
 	restoredRecord := &struct {
 		Value ss.EntityID `json:"value"`
 	}{}
-	assert.Nil(json.Unmarshal(recordValue, restoredRecord))
+	assert.NoError(json.Unmarshal(recordValue, restoredRecord))
 	assert.Equal(entityIDSource, restoredRecord.Value.String())
 }
 
-func Test_DDB_EntityID_MarshalDynamoDB(test *testing.T) {
+func Test_SS_EntityID_MarshalDynamoDB(test *testing.T) {
 	assert := assert.New(test)
 
 	id, err := ss.ParseEntityID(entityIDSource)
 	assert.NoError(err)
 	assert.NotNil(id)
-	control, _ := uuid.Parse(entityUUID)
+	control, err := uuid.Parse(entityUUID)
+	assert.NoError(err)
 
 	ssValue, err := dynamodbattribute.Marshal(id)
 	assert.NoError(err)
@@ -104,7 +105,7 @@ func Test_DDB_EntityID_MarshalDynamoDB(test *testing.T) {
 	assert.Equal(*controlValue, *ssValue)
 
 	restoredSSValue := &ss.EntityID{}
-	assert.Nil(dynamodbattribute.Unmarshal(controlValue, restoredSSValue))
+	assert.NoError(dynamodbattribute.Unmarshal(controlValue, restoredSSValue))
 	assert.Equal(entityIDSource, restoredSSValue.String())
 
 	ssRecord := struct {
@@ -122,7 +123,7 @@ func Test_DDB_EntityID_MarshalDynamoDB(test *testing.T) {
 	restoredSSRecord := &struct {
 		Value ss.EntityID `json:"value"`
 	}{}
-	assert.Nil(
+	assert.NoError(
 		dynamodbattribute.UnmarshalMap(controlRecordValue, restoredSSRecord))
 	assert.Equal(entityIDSource, restoredSSRecord.Value.String())
 }

@@ -4,12 +4,11 @@
 package ddb
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	awsrequest "github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/palchukovsky/ss"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -17,7 +16,6 @@ import (
 // IteratorMover describes intreface to move iterator.
 type IteratorMover interface {
 	Next() bool
-	Err() error
 }
 
 // Iterator describes intreface to read paged data from the database.
@@ -30,7 +28,7 @@ type Iterator interface {
 type CacheIterator interface {
 	Iterator
 	GetSize() int
-	GetAt(index int) (RecordBuffer, error)
+	GetAt(index int) RecordBuffer
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +36,7 @@ type CacheIterator interface {
 func newCacheIterator(
 	data []map[string]*dynamodb.AttributeValue,
 	record RecordBuffer,
-) CacheIterator {
+) *cacheIterator {
 	return &cacheIterator{data: data, record: record}
 }
 
@@ -46,48 +44,53 @@ type cacheIterator struct {
 	data   []map[string]*dynamodb.AttributeValue
 	record RecordBuffer
 	pos    int
-	err    error
+}
+
+func (it *cacheIterator) Set(data []map[string]*dynamodb.AttributeValue) {
+	it.data = data
 }
 
 func (it cacheIterator) GetSize() int      { return len(it.data) }
-func (it cacheIterator) Err() error        { return it.err }
 func (it cacheIterator) Get() RecordBuffer { return it.record }
 
 func (it *cacheIterator) Next() bool {
-	if it.err != nil {
-		return false
+	if it.data == nil {
+		ss.S.Log().Panic(ss.NewLogMsg("iterator is not initialized"))
 	}
 	if it.pos >= len(it.data) {
 		return false
 	}
 	it.pos++
 	it.readAt(it.pos - 1)
-	return it.err == nil
+	return true
 }
 
-func (it cacheIterator) GetAt(index int) (RecordBuffer, error) {
-	if it.err != nil {
-		return nil, it.err
-	}
+func (it cacheIterator) GetAt(index int) RecordBuffer {
 	it.readAt(index)
-	return it.record, it.err
+	return it.record
 }
 
 func (it *cacheIterator) readAt(index int) {
 	it.record.Clear()
-	it.err = dynamodbattribute.UnmarshalMap(it.data[index], it.record)
-	if it.err != nil {
-		it.err = fmt.Errorf(
-			`failed to unmarshal cached row %d of %d from row set: "%w"`,
-			index,
-			len(it.data),
-			it.err)
+	err := dynamodbattribute.UnmarshalMap(it.data[index], it.record)
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					`failed to unmarshal cached row %d of %d from row set`,
+					index,
+					len(it.data)).
+				AddErr(err).
+				AddDump(it.data).
+				AddDump(it.record))
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newPagedIterator(request *awsrequest.Request, record RecordBuffer,
+func newPagedIterator(
+	request *awsrequest.Request,
+	record RecordBuffer,
 ) Iterator {
 	return &pagedIterator{
 		// example has been taken from func (DynamoDB) QueryPagesWithContext:
@@ -104,24 +107,19 @@ func newPagedIterator(request *awsrequest.Request, record RecordBuffer,
 type pagedIterator struct {
 	paginator awsrequest.Pagination
 	cache     CacheIterator
-	err       error
 }
 
-func (it pagedIterator) Err() error        { return it.err }
 func (it pagedIterator) Get() RecordBuffer { return it.cache.Get() }
 
 func (it *pagedIterator) Next() bool {
-	it.err = nil
 	if it.cache.Next() {
 		return true
-	}
-	if it.err = it.cache.Err(); it.err != nil {
-		return false
 	}
 	// example has been taken from func (DynamoDB) QueryPagesWithContext:
 	if !it.paginator.Next() {
 		if err := it.paginator.Err(); err != nil {
-			it.err = fmt.Errorf(`failed to request next page "%w"`, err)
+			ss.S.Log().Panic(
+				ss.NewLogMsg(`failed to request next page`).AddErr(err))
 		}
 		return false
 	}

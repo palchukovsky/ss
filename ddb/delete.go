@@ -14,100 +14,115 @@ import (
 
 // Delete describes the interface to delete one record by key.
 type Delete interface {
+	ss.NoCopy
+
 	Condition(string) Delete
 	Values(Values) Delete
-	Request() (bool, error)
-	RequestAndReturn(RecordBuffer) (bool, error)
+
+	// Request executed request and return false if failed to find a record
+	// or of added conditions are failed.
+	Request() bool
+	// RequestAndReturn executed request and return false if failed to find
+	// a record or of added conditions are failed.
+	RequestAndReturn(RecordBuffer) bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func (client client) Delete(key KeyRecord) Delete {
+func (client *client) Delete(key KeyRecord) Delete {
+	result := client.newDeleteTrans(key)
+	result.input.ConditionExpression = aws.String(
+		fmt.Sprintf(
+			"attribute_exists(%s)",
+			aliasReservedWord(
+				key.GetKeyPartitionField(),
+				&result.input.ExpressionAttributeNames)))
+	return result
+}
+
+func (client *client) DeleteIfExisting(key KeyRecord) Delete {
+	return client.newDeleteTrans(key)
+}
+
+type delete struct {
+	ss.NoCopyImpl
+
+	db    *dynamodb.DynamoDB
+	input dynamodb.DeleteItemInput
+}
+
+func (client *client) newDeleteTrans(key KeyRecord) *delete {
 	result := delete{
 		db: client.db,
 		input: dynamodb.DeleteItemInput{
 			TableName: aws.String(ss.S.NewBuildEntityName(key.GetTable())),
 		},
 	}
-	result.input.Key, result.err = dynamodbattribute.MarshalMap(key.GetKey())
-	if result.err != nil {
-		result.err = fmt.Errorf(
-			`failed to serialize key to delete from table %q: "%w"`,
-			result.getTable(),
-			result.err)
+	var err error
+	result.input.Key, err = dynamodbattribute.MarshalMap(key.GetKey())
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					`failed to serialize key to delete from table %q`,
+					result.getTable()).
+				AddErr(err).
+				AddDump(key))
 	}
-	result.input.ConditionExpression = aws.String(fmt.Sprintf(
-		"attribute_exists(%s)", aliasReservedWord(
-			key.GetKeyPartitionField(), &result.input.ExpressionAttributeNames)))
+	return &result
+}
+
+func (trans *delete) Values(values Values) Delete {
+	values.Marshal(&trans.input.ExpressionAttributeValues)
+	return trans
+}
+
+func (trans *delete) Condition(condition string) Delete {
+	*trans.input.ConditionExpression += " and (" +
+		*aliasReservedInString(condition, &trans.input.ExpressionAttributeNames) +
+		")"
+	return trans
+}
+
+func (trans *delete) Request() bool {
+	return trans.request() != nil
+}
+
+func (trans *delete) RequestAndReturn(result RecordBuffer) bool {
+	trans.input.ReturnValues = aws.String(dynamodb.ReturnValueAllOld)
+	output := trans.request()
+	if output == nil {
+		return false
+	}
+	err := dynamodbattribute.UnmarshalMap(output.Attributes, result)
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					`failed to read delete response from table %q`,
+					trans.getTable()).
+				AddErr(err).
+				AddDump(result))
+	}
+	return true
+}
+
+func (trans *delete) request() *dynamodb.DeleteItemOutput {
+	request, result := trans.db.DeleteItemRequest(&trans.input)
+	if err := request.Send(); err != nil {
+		if trans.input.ConditionExpression != nil {
+			if IsConditionalCheckError(err) {
+				// no error, but not found
+				return nil
+			}
+		}
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(`failed to delete item from table %q`, trans.getTable()).
+				AddErr(err).
+				AddDump(trans.input))
+	}
 	return result
 }
 
-type delete struct {
-	db    *dynamodb.DynamoDB
-	input dynamodb.DeleteItemInput
-	err   error
-}
-
-func (delete delete) Values(values Values) Delete {
-	if delete.err != nil {
-		return delete
-	}
-	delete.input.ExpressionAttributeValues, delete.err = values.Marshal()
-	if delete.err != nil {
-		delete.err = fmt.Errorf(
-			`failed to serialize values to update table %q: "%w", values: "%v"`,
-			delete.getTable(), delete.err, values)
-	}
-	return delete
-}
-
-func (delete delete) Condition(condition string) Delete {
-	*delete.input.ConditionExpression += " and " +
-		*aliasReservedInString(condition, &delete.input.ExpressionAttributeNames)
-	return delete
-}
-
-func (delete delete) Request() (bool, error) {
-	output, err := delete.request()
-	return output != nil, err
-}
-
-func (delete delete) RequestAndReturn(result RecordBuffer) (bool, error) {
-	delete.input.ReturnValues = aws.String(dynamodb.ReturnValueAllOld)
-	output, err := delete.request()
-	if err != nil || output == nil {
-		return false, err
-	}
-	err = dynamodbattribute.UnmarshalMap(output.Attributes, result)
-	if err != nil {
-		return false,
-			fmt.Errorf(
-				`failed to read delete response from table %q: "%w"`,
-				delete.getTable(),
-				err)
-	}
-	return true, nil
-}
-
-func (delete delete) request() (*dynamodb.DeleteItemOutput, error) {
-	if delete.err != nil {
-		return nil, delete.err
-	}
-	request, result := delete.db.DeleteItemRequest(&delete.input)
-	if err := request.Send(); err != nil {
-		if delete.input.ConditionExpression != nil {
-			if IsConditionalCheckError(err) {
-				// no error, but not found
-				return nil, nil
-			}
-		}
-		return nil,
-			fmt.Errorf(
-				`failed to delete item from table %q: "%w"`,
-				delete.getTable(),
-				err)
-	}
-	return result, nil
-}
-
-func (delete delete) getTable() string { return *delete.input.TableName }
+func (delete *delete) getTable() string { return *delete.input.TableName }

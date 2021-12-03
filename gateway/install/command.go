@@ -6,6 +6,7 @@ package gatewayinstall
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/palchukovsky/ss"
 )
@@ -24,13 +25,12 @@ type abstractCommand struct {
 	log  ss.LogStream
 }
 
-func newCommand(
-	name string,
-	log ss.LogStream,
-) (abstractCommand, error) {
+func newCommand(name string, log ss.LogSession) (abstractCommand, error) {
 	result := abstractCommand{name: name}
 	result.log = log.NewSession(
-		ss.NewLogPrefix().AddVal("gatewayCommand", result.name))
+		ss.
+			NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+			AddVal("gatewayCommand", result.name))
 	return result, nil
 }
 
@@ -39,11 +39,7 @@ func (command abstractCommand) Log() ss.LogStream { return command.log }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-func newWSCommand(
-	name string,
-	path string,
-	log ss.LogStream,
-) (command, error) {
+func newWSCommand(name string, path string, log ss.LogSession) (command, error) {
 	command, err := newCommand(name, log)
 	if err != nil {
 		return nil, err
@@ -109,7 +105,7 @@ func (command wsCommand) createModel(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newWSConnectCommand(log ss.LogStream) (command, error) {
+func newWSConnectCommand(log ss.LogSession) (command, error) {
 	command, err := newCommand("$connect", log)
 	if err != nil {
 		return nil, err
@@ -134,7 +130,7 @@ func (command wsConnectCommand) createRoute(client GatewayClient) error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newWSDesconnectCommand(log ss.LogStream) (command, error) {
+func newWSDesconnectCommand(log ss.LogSession) (command, error) {
 	command, err := newCommand("$disconnect", log)
 	if err != nil {
 		return nil, err
@@ -151,6 +147,24 @@ func (command wsDesconnectCommand) Create(client GatewayClient) error {
 func (command wsDesconnectCommand) createRoute(client GatewayClient) error {
 	_, err := client.CreateRoute(command.name, "Disconnect", nil, nil)
 	return err
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func newWSConnectionUpdateCommand(
+	sourcePath string,
+	log ss.LogSession,
+) (
+	command,
+	error,
+) {
+	if !strings.HasSuffix(sourcePath, "/") {
+		sourcePath += "/"
+	}
+	return newWSCommand(
+		"ConnectionUpdate",
+		sourcePath+"ss/api/gateway/app/lambda/connection/update",
+		log)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

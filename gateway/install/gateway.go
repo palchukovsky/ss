@@ -23,35 +23,26 @@ type Gateway interface {
 }
 
 // NewGateway creates new gateway instance.
-func NewAppGateway(log ss.LogStream) Gateway {
-	return NewGateway(
-		ss.S.Config().AWS.Gateway.App.ID,
-		"app",
-		log)
-}
-
-// NewGateway creates new gateway instance.
-func NewGateway(
-	id string,
-	name string,
-	log ss.LogStream,
-) Gateway {
+func NewGateway(id string, name string, log ss.LogSession) Gateway {
 	return gateway{
 		id:   id,
 		name: name,
-		log:  log.NewSession(ss.NewLogPrefix().AddVal("gateway", name)),
+		log: log.NewSession(
+			ss.
+				NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+				AddVal("gateway", name)),
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type GatewayCommadsReader interface {
-	Read(name string, log ss.LogStream) ([]command, error)
+	Read(name string, log ss.LogSession) ([]command, error)
 }
 
 func newGatewayCommandsReader(
 	sourcePath string,
-	newCommand func(name, path string, log ss.LogStream) (command, error),
+	newCommand func(name, path string, log ss.LogSession) (command, error),
 ) GatewayCommadsReader {
 	return gatewayCommadsReader{
 		sourcePath: sourcePath,
@@ -61,12 +52,12 @@ func newGatewayCommandsReader(
 
 type gatewayCommadsReader struct {
 	sourcePath string
-	newCommand func(name, path string, log ss.LogStream) (command, error)
+	newCommand func(name, path string, log ss.LogSession) (command, error)
 }
 
 func (reader gatewayCommadsReader) Read(
 	name string,
-	log ss.LogStream,
+	log ss.LogSession,
 ) ([]command, error) {
 	result := []command{}
 
@@ -127,7 +118,7 @@ func (reader gatewayCommadsReader) Read(
 type gateway struct {
 	id   string
 	name string
-	log  ss.LogStream
+	log  ss.LogSession
 }
 
 func (gateway gateway) GetName() string   { return gateway.name }
@@ -163,9 +154,10 @@ func (gateway gateway) Delete(client Client) error {
 func (gateway gateway) Deploy(client Client) error {
 	return client.NewGatewayClient(gateway.id).Deploy()
 }
-func (gateway *gateway) readCommads(sourcePath string) []command {
-	reader := newGatewayCommandsReader(sourcePath, newWSCommand)
 
+func (gateway *gateway) readCommads(sourcePath string) []command {
+
+	reader := newGatewayCommandsReader(sourcePath, newWSCommand)
 	result, err := reader.Read(gateway.name, gateway.log)
 	if err != nil {
 		log.Panic(
@@ -186,9 +178,21 @@ func (gateway *gateway) readCommads(sourcePath string) []command {
 		disconnect, err := newWSDesconnectCommand(gateway.log)
 		if err != nil {
 			log.Panic(
-				ss.NewLogMsg(`failed to create API command "discconnect"`).AddErr(err))
+				ss.NewLogMsg(`failed to create API command "disconnect"`).AddErr(err))
 		}
 		result = append(result, disconnect)
+	}
+	{
+		connectionUpdate, err := newWSConnectionUpdateCommand(
+			sourcePath,
+			gateway.log)
+		if err != nil {
+			log.Panic(
+				ss.
+					NewLogMsg(`failed to create API command "connection update"`).
+					AddErr(err))
+		}
+		result = append(result, connectionUpdate)
 	}
 
 	return result

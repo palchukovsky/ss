@@ -10,21 +10,27 @@ import (
 
 type FirebaseIndex struct {
 	ssdb.UserExternalFirabaseIDIndex
-	ID          ss.UserID `json:"id"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email,omitempty"`
-	PhoneNumber string    `json:"phone,omitempty"`
-	PhotoURL    string    `json:"photoUrl,omitempty"`
+	ID                            ss.UserID `json:"id"`
+	Name                          string    `json:"name"`
+	Email                         string    `json:"email,omitempty"`
+	PhoneNumber                   string    `json:"phone,omitempty"`
+	PhotoURL                      string    `json:"photoUrl,omitempty"`
+	AnonymousRecordExpirationTime *ss.Time  `json:"anonymExpiration,omitempty"`
 }
 
 func NewFirebaseIndex(source ssdb.User) FirebaseIndex {
 	return FirebaseIndex{
-		ID:          source.ID,
-		Name:        source.Name,
-		Email:       source.Email,
-		PhoneNumber: source.PhoneNumber,
-		PhotoURL:    source.PhotoURL,
+		ID:                            source.ID,
+		Name:                          source.GetName(),
+		Email:                         source.Email,
+		PhoneNumber:                   source.PhoneNumber,
+		PhotoURL:                      source.PhotoURL,
+		AnonymousRecordExpirationTime: source.AnonymousRecordExpirationTime,
 	}
 }
 
 func (r *FirebaseIndex) Clear() { *r = FirebaseIndex{} }
+
+func (r FirebaseIndex) IsAnonymous() bool {
+	return r.AnonymousRecordExpirationTime != nil
+}

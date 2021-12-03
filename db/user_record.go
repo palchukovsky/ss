@@ -4,6 +4,8 @@
 package db
 
 import (
+	"time"
+
 	"github.com/palchukovsky/ss"
 	"github.com/palchukovsky/ss/ddb"
 )
@@ -17,56 +19,90 @@ func (UserRecord) GetKeyPartitionField() string { return "id" }
 func (UserRecord) GetKeySortField() string      { return "" }
 
 ////////////////////////////////////////////////////////////////////////////////
+type userKeyValue struct {
+	ID ss.UserID `json:"id"`
+}
+
+func newUserKeyValueValue(id ss.UserID) userKeyValue {
+	return userKeyValue{ID: id}
+}
 
 // UserKey is an object ot looks for user by primary key.
 type UserKey struct {
 	UserRecord
-	id ss.UserID
+	userKeyValue
 }
 
 // NewUserKey creates new user key instance.
-func NewUserKey(id ss.UserID) UserKey { return UserKey{id: id} }
-
-// GetKey returns user key data.
-func (key UserKey) GetKey() interface{} {
-	return struct {
-		ID ss.UserID `json:"id"`
-	}{ID: key.id}
+func NewUserKey(id ss.UserID) UserKey {
+	return UserKey{userKeyValue: newUserKeyValueValue(id)}
 }
 
+// GetKey returns user key data.
+func (key UserKey) GetKey() interface{} { return key.userKeyValue }
+
 ////////////////////////////////////////////////////////////////////////////////
+
+func NewUserAnonymousRecordExpirationTime(start ss.Time) *ss.Time {
+	result := start.Add(((time.Hour * 24) * 365) * 292)
+	return &result
+}
 
 // User describes user record fields.
 type User struct {
 	UserRecord
-	ID           ss.UserID `json:"id"`
-	FirebaseID   string    `json:"fId"`
-	CreationTime ddb.Time  `json:"created"`
-	// SpotSubscriptionsVersion increases each time when the user subscribed
-	// for an event sot or unsubscribed from an event spot.
-	SpotSubscriptionsVersion ddb.SubscriptionVersion `json:"spotsVer"`
-	Name                     string                  `json:"name"`
-	Email                    string                  `json:"email,omitempty"`
-	PhoneNumber              string                  `json:"phone,omitempty"`
-	PhotoURL                 string                  `json:"photoUrl,omitempty"`
+	userKeyValue
+	FirebaseID   string  `json:"fId"`
+	CreationTime ss.Time `json:"created"`
+	// SpotMembershipVersion increases each time when the user joins an event
+	// spot or leaves it.
+	SpotMembershipVersion ddb.MembershipVersion `json:"spotsVer"`
+	// OriginalName is the name from the user record source (like Firbase).
+	OriginalName string `json:"origName"`
+	// OwnName is the name that user set by the app.
+	OwnName                       string   `json:"ownName,omitempty"`
+	Email                         string   `json:"email,omitempty"`
+	PhoneNumber                   string   `json:"phone,omitempty"`
+	PhotoURL                      string   `json:"photoUrl,omitempty"`
+	AnonymousRecordExpirationTime *ss.Time `json:"anonymExpiration,omitempty"`
 }
 
 // NewUser generates new user record.
-func NewFirebaseUser(firebaseID string, name string) (User, UserUniqueIndex) {
-	record := User{
-		ID:                       ss.NewUserID(),
-		FirebaseID:               firebaseID,
-		CreationTime:             ddb.Now(),
-		SpotSubscriptionsVersion: ddb.NewSubscriptionVersion(1),
-		Name:                     name,
+func NewFirebaseUser(
+	firebaseID string,
+	name string,
+	isAnonymous bool,
+) (User, UserUniqueIndex) {
+	result := User{
+		userKeyValue:          newUserKeyValueValue(ss.NewUserID()),
+		FirebaseID:            firebaseID,
+		CreationTime:          ss.Now(),
+		SpotMembershipVersion: ddb.NewMembershipVersion(1),
+		OriginalName:          name,
+	}
+
+	if isAnonymous {
+		result.AnonymousRecordExpirationTime = NewUserAnonymousRecordExpirationTime(
+			result.CreationTime)
 	}
 
 	uniqueIndex := UserUniqueIndex{
-		Value:  []byte("f#" + record.FirebaseID),
-		UserID: record.ID,
+		Value:  []byte("f#" + result.FirebaseID),
+		UserID: result.ID,
 	}
 
-	return record, uniqueIndex
+	return result, uniqueIndex
+}
+
+func (record User) IsAnonymous() bool {
+	return record.AnonymousRecordExpirationTime != nil
+}
+
+func (record User) GetName() string {
+	if record.OwnName != "" {
+		return record.OwnName
+	}
+	return record.OriginalName
 }
 
 func (record User) GetData() interface{} { return record }

@@ -4,8 +4,6 @@
 package connectiondeletelambda
 
 import (
-	"fmt"
-
 	"github.com/palchukovsky/ss"
 	apiapp "github.com/palchukovsky/ss/api/gateway/app"
 	"github.com/palchukovsky/ss/db"
@@ -28,14 +26,10 @@ func Run() { apiapp.Run() }
 type lambda struct{ db ddb.Client }
 
 func (lambda lambda) Execute(request ws.Request) error {
-	isFound, err := lambda.
+	isFound := lambda.
 		db.
 		Delete(db.NewConnectionKey(request.GetConnectionID())).
 		Request()
-	if err != nil {
-		return fmt.Errorf(`failed to delete connection %q: "%w"`,
-			request.GetConnectionID(), err)
-	}
 	if !isFound {
 		request.Log().Warn(
 			ss.

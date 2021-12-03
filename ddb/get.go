@@ -4,8 +4,6 @@
 package ddb
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -13,14 +11,18 @@ import (
 )
 
 // Find describes the interface to find one record by key.
-type Find interface{ Request() (bool, error) }
+type Find interface {
+	ss.NoCopy
+
+	Request() bool
+}
 
 // Get describes the interface to query one record by key from a database.
-type Get interface{ Request() error }
+type Get interface{ Request() }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newFind(db *dynamodb.DynamoDB, record KeyRecordBuffer) find {
+func newFind(db *dynamodb.DynamoDB, record KeyRecordBuffer) *find {
 	result := find{
 		db:     db,
 		record: record,
@@ -28,68 +30,75 @@ func newFind(db *dynamodb.DynamoDB, record KeyRecordBuffer) find {
 			TableName: aws.String(ss.S.NewBuildEntityName(record.GetTable())),
 		},
 	}
-	result.input.Key, result.err = dynamodbattribute.MarshalMap(record.GetKey())
-	if result.err != nil {
-		result.err = fmt.Errorf(
-			`failed to serialize key to get item from %q: "%w", key: "%v"`,
-			record.GetTable(), result.err, record.GetKey())
-		return result
+	var err error
+	result.input.Key, err = dynamodbattribute.MarshalMap(record.GetKey())
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					`failed to serialize key to get item from %q`,
+					record.GetTable()).
+				AddErr(err).
+				AddDump(record))
+		return &result
 	}
-	result.input.ProjectionExpression = getRecordProjection(record,
+	result.input.ProjectionExpression = getRecordProjection(
+		record,
 		&result.input.ExpressionAttributeNames)
-	return result
+	return &result
 }
 
 type find struct {
+	ss.NoCopyImpl
+
 	db     *dynamodb.DynamoDB
 	record RecordBuffer
 	input  dynamodb.GetItemInput
-	err    error
 }
 
-func (find find) Request() (bool, error) {
-	if find.err != nil {
-		return false, find.err
-	}
+func (find *find) Request() bool {
 	request, response := find.db.GetItemRequest(&find.input)
 	if err := request.Send(); err != nil {
-		return false,
-			fmt.Errorf(
-				`failed to get item from table %q: "%w"`,
-				find.record.GetTable(),
-				err)
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(`failed to get item from table %q`, find.record.GetTable()).
+				AddErr(err).
+				AddDump(find.record).
+				AddDump(find.input))
 	}
 	if len(response.Item) == 0 {
-		return false, nil
+		return false
 	}
 	err := dynamodbattribute.UnmarshalMap(response.Item, find.record)
 	if err != nil {
-		return false,
-			fmt.Errorf(
-				`failed to read get-response from table %q: "%w"`,
-				find.record.GetTable(),
-				err)
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					`failed to read get-response from table %q`,
+					find.record.GetTable()).
+				AddErr(err).
+				AddDump(find.record).
+				AddDump(find.input))
 	}
-	return true, nil
+	return true
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func newGet(db *dynamodb.DynamoDB, record KeyRecordBuffer) get {
-	return get{find: newFind(db, record)}
+func newGet(db *dynamodb.DynamoDB, record KeyRecordBuffer) *get {
+	return &get{find: newFind(db, record)}
 }
 
-type get struct{ find }
+type get struct{ *find }
 
-func (get get) Request() error {
-	isFound, err := get.find.Request()
-	if err != nil {
-		return err
+func (get *get) Request() {
+	if isFound := get.find.Request(); !isFound {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(`unknown record in table %q`, get.find.record.GetTable()).
+				AddDump(get.record).
+				AddDump(get.input))
 	}
-	if !isFound {
-		return fmt.Errorf(`unknown record in table %q`, get.find.record.GetTable())
-	}
-	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

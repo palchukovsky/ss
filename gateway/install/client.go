@@ -325,11 +325,22 @@ func (client gatewayClient) DeleteAuthorizers() error {
 }
 
 func (client gatewayClient) Deploy() error {
-	input := apigatewayv2.CreateDeploymentInput{
+	deploymentInput := apigatewayv2.CreateDeploymentInput{
 		ApiId:     client.id,
 		StageName: aws.String(ss.S.Build().Version),
 	}
-	_, err := client.client.CreateDeployment(context.TODO(), &input)
+	deploymentOutput, err := client.client.CreateDeployment(
+		context.TODO(),
+		&deploymentInput)
+	if err != nil {
+		return err
+	}
+	stageInput := apigatewayv2.UpdateStageInput{
+		ApiId:        deploymentInput.ApiId,
+		StageName:    deploymentInput.StageName,
+		DeploymentId: deploymentOutput.DeploymentId,
+	}
+	_, err = client.client.UpdateStage(context.TODO(), &stageInput)
 	return err
 }
 

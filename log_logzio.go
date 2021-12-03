@@ -4,6 +4,7 @@
 package ss
 
 import (
+	"fmt"
 	"log"
 
 	logziolib "github.com/logzio/logzio-go"
@@ -15,8 +16,8 @@ func newLogzioIfSet(
 	config Config,
 	sentry sentry,
 ) (logDestination, error) {
-
-	if config.SS.Log.Logzio == "" {
+	logConfig := config.SS.Log.Logzio
+	if logConfig == nil {
 		return nil, nil
 	}
 
@@ -28,7 +29,8 @@ func newLogzioIfSet(
 
 	var err error
 	result.sender, err = logziolib.New(
-		config.SS.Log.Logzio,
+		logConfig.Token,
+		logziolib.SetUrl(fmt.Sprintf("https://%s:8071", logConfig.Host)),
 		// logziolib.SetDebug(os.Stderr),
 		logziolib.SetTempDirectory("/tmp/logzio_tmp"))
 	if err != nil {

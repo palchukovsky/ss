@@ -21,6 +21,7 @@ const (
 	logMsgNodeConnection            = "connection"
 	logMsgNodeRequest               = "request"
 	logMsgNodeDumpList              = "dump"
+	logMsgNodeDumpGroupList         = "dumpGroup"
 	logMsgNodeDumpGroupRequestList  = "request"
 	logMsgNodeDumpGroupResponseList = "response"
 	logMsgNodeStack                 = "stack"
@@ -40,13 +41,29 @@ type LogMsg struct {
 func NewLogMsg(format string, args ...interface{}) *LogMsg {
 	return &LogMsg{
 		message: fmt.Sprintf(format, args...),
-		time:    Now(),
+		time:    Now().Get(),
 	}
 }
 
-func (m *LogMsg) AddPrefix(prefix LogPrefix) *LogMsg {
-	// Source attributes has to be last to overwired conflicts.
-	m.attributes = append(prefix, m.attributes...)
+func (m *LogMsg) AddInfoPrefix(prefix LogPrefix) *LogMsg {
+	m.AddAttrs(prefix.generalAttrs)
+	return m
+}
+func (m *LogMsg) AddFailPrefix(prefix LogPrefix) *LogMsg {
+	m.AddInfoPrefix(prefix)
+	m.AddAttrs(prefix.getFailAttrs())
+	return m
+}
+func (m *LogMsg) AddAttrs(source []LogMsgAttr) *LogMsg {
+	m.attributes = append(m.attributes, source...)
+	return m
+}
+func (m *LogMsg) MergeWithLowLevelMsg(source *LogMsg) *LogMsg {
+	// It doesn't use level and time from source message, as an error already
+	// happened and info from this occurring is more important.
+	m.message += " << " + source.message
+	m.attributes = append(m.attributes, source.attributes...)
+	m.errs = append(m.errs, source.errs...)
 	return m
 }
 
@@ -56,9 +73,7 @@ func (m *LogMsg) Add(source LogMsgAttr) *LogMsg {
 }
 
 func (m *LogMsg) AddRequest(source interface{}) *LogMsg {
-	m.attributes = append(
-		m.attributes,
-		NewLogMsgAttrDumpGroup(logMsgNodeDumpGroupRequestList, source))
+	m.attributes = append(m.attributes, newLogMsgAttrRequestDump(source))
 	return m
 }
 func (m *LogMsg) AddResponse(source interface{}) *LogMsg {
@@ -74,7 +89,7 @@ func (m *LogMsg) AddErr(source error) *LogMsg {
 }
 
 func (m *LogMsg) AddPanic(source interface{}) *LogMsg {
-	m.errs = append(m.errs, newlogMsgAttrPanic(source))
+	m.errs = append(m.errs, newLogMsgAttrPanic(source))
 	return m
 }
 
@@ -101,6 +116,10 @@ func (m *LogMsg) SetLevel(source logLevel) { m.level = source }
 func (m LogMsg) GetLevel() logLevel        { return m.level }
 func (m LogMsg) GetMessage() string        { return m.message }
 func (m LogMsg) GetErrs() []logMsgAttrErr  { return m.errs }
+
+func (m LogMsg) Error() string {
+	return m.GetMessage() + " " + string(m.ConvertAttributesToJSON())
+}
 
 func (m LogMsg) MarshalMap() map[string]interface{} {
 	result := m.MarshalAttributesMap()
@@ -226,7 +245,7 @@ func NewLogMsgAttrDumpGroup(
 
 func (a LogMsgAttrDumpGroup) MarshalLogMsg(destination map[string]interface{}) {
 	value := logMsgAttrDumpValue{newLogMsgValueTypeName(a.value): a.value}
-	if dumps, has := destination[logMsgNodeDumpList]; has {
+	if dumps, has := destination[logMsgNodeDumpGroupList]; has {
 		destination := dumps.(map[string]interface{})
 		if node, has := destination[a.groupNode]; has {
 			destination[a.groupNode] = append(
@@ -237,9 +256,19 @@ func (a LogMsgAttrDumpGroup) MarshalLogMsg(destination map[string]interface{}) {
 		destination[a.groupNode] = []logMsgAttrDumpValue{value}
 		return
 	}
-	destination[logMsgNodeDumpList] = map[string]interface{}{
+	destination[logMsgNodeDumpGroupList] = map[string]interface{}{
 		a.groupNode: []logMsgAttrDumpValue{value},
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func NewLogMsgAttrRequestDumps(value interface{}) []LogMsgAttr {
+	return []LogMsgAttr{newLogMsgAttrRequestDump(value)}
+}
+
+func newLogMsgAttrRequestDump(value interface{}) LogMsgAttr {
+	return NewLogMsgAttrDumpGroup(logMsgNodeDumpGroupRequestList, value)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -269,7 +298,7 @@ func (a logMsgAttrError) MarshalLogMsg() interface{} {
 
 type logMsgAttrPanic struct{ value logMsgAttrPanicValue }
 
-func newlogMsgAttrPanic(source interface{}) logMsgAttrErr {
+func newLogMsgAttrPanic(source interface{}) logMsgAttrErr {
 	return logMsgAttrPanic{value: logMsgAttrPanicValue{value: source}}
 }
 
@@ -333,12 +362,20 @@ func (a logMsgAttrStack) MarshalLogMsg(destination map[string]interface{}) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type LogPrefix []LogMsgAttr
+type LogPrefix struct {
+	generalAttrs []LogMsgAttr
+	getFailAttrs func() []LogMsgAttr
+}
 
-func NewLogPrefix() LogPrefix { return make([]LogMsgAttr, 0, 1) }
+func NewLogPrefix(getFailAttrs func() []LogMsgAttr) LogPrefix {
+	return LogPrefix{
+		generalAttrs: make([]LogMsgAttr, 0, 1),
+		getFailAttrs: getFailAttrs,
+	}
+}
 
 func (lp LogPrefix) Add(a LogMsgAttr) LogPrefix {
-	lp = append(lp, a)
+	lp.generalAttrs = append(lp.generalAttrs, a)
 	return lp
 }
 
@@ -347,7 +384,7 @@ func (lp LogPrefix) AddRequestID(source string) LogPrefix {
 }
 
 func (lp LogPrefix) AddVal(name string, value interface{}) LogPrefix {
-	lp = append(lp, NewLogMsgAttrVal(name, value))
+	lp.generalAttrs = append(lp.generalAttrs, NewLogMsgAttrVal(name, value))
 	return lp
 }
 

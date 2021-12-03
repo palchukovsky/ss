@@ -21,23 +21,18 @@ func (record *ConnectionIDByUser) Clear() { *record = ConnectionIDByUser{} }
 type FindUserConnectionsIterator interface {
 	Next() bool
 	Get() ss.ConnectionID
-	Err() error
 }
 
 func FindUserConnections(
 	user ss.UserID,
 	db ddb.Client,
-) (
-	FindUserConnectionsIterator,
-	error,
-) {
+) FindUserConnectionsIterator {
 	var result findUserConnectionsIterator
-	var err error
-	result.it, err = db.
+	result.it = db.
 		Index(&result.buffer).
 		Query("user = :u", ddb.Values{":u": user}).
 		RequestPaged()
-	return &result, err
+	return &result
 }
 
 type findUserConnectionsIterator struct {
@@ -45,14 +40,10 @@ type findUserConnectionsIterator struct {
 	buffer ConnectionIDByUser
 }
 
-func (it findUserConnectionsIterator) Next() bool {
-	return it.it.Next()
-}
+func (it findUserConnectionsIterator) Next() bool { return it.it.Next() }
+
 func (it findUserConnectionsIterator) Get() ss.ConnectionID {
 	return it.buffer.ID
-}
-func (it findUserConnectionsIterator) Err() error {
-	return it.it.Err()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

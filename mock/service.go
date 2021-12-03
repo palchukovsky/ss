@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	go0 "firebase.google.com/go"
 	aws "github.com/aws/aws-sdk-go-v2/aws"
 	session "github.com/aws/aws-sdk-go/aws/session"
 	gomock "github.com/golang/mock/gomock"
@@ -77,6 +78,20 @@ func (mr *MockServiceMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockService)(nil).Config))
 }
 
+// Firebase mocks base method.
+func (m *MockService) Firebase() *go0.App {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Firebase")
+	ret0, _ := ret[0].(*go0.App)
+	return ret0
+}
+
+// Firebase indicates an expected call of Firebase.
+func (mr *MockServiceMockRecorder) Firebase() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Firebase", reflect.TypeOf((*MockService)(nil).Firebase))
+}
+
 // GetLambdaTimeout mocks base method.
 func (m *MockService) GetLambdaTimeout() <-chan time.Time {
 	m.ctrl.T.Helper()
@@ -89,6 +104,30 @@ func (m *MockService) GetLambdaTimeout() <-chan time.Time {
 func (mr *MockServiceMockRecorder) GetLambdaTimeout() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLambdaTimeout", reflect.TypeOf((*MockService)(nil).GetLambdaTimeout))
+}
+
+// Go mocks base method.
+func (m *MockService) Go(arg0 func()) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Go", arg0)
+}
+
+// Go indicates an expected call of Go.
+func (mr *MockServiceMockRecorder) Go(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Go", reflect.TypeOf((*MockService)(nil).Go), arg0)
+}
+
+// Lock mocks base method.
+func (m *MockService) Lock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Lock")
+}
+
+// Lock indicates an expected call of Lock.
+func (mr *MockServiceMockRecorder) Lock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockService)(nil).Lock))
 }
 
 // Log mocks base method.
@@ -161,6 +200,20 @@ func (mr *MockServiceMockRecorder) NewBuildEntityName(name interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBuildEntityName", reflect.TypeOf((*MockService)(nil).NewBuildEntityName), name)
 }
 
+// Now mocks base method.
+func (m *MockService) Now() ss.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Now")
+	ret0, _ := ret[0].(ss.Time)
+	return ret0
+}
+
+// Now indicates an expected call of Now.
+func (mr *MockServiceMockRecorder) Now() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Now", reflect.TypeOf((*MockService)(nil).Now))
+}
+
 // Product mocks base method.
 func (m *MockService) Product() string {
 	m.ctrl.T.Helper()
@@ -176,13 +229,25 @@ func (mr *MockServiceMockRecorder) Product() *gomock.Call {
 }
 
 // StartLambda mocks base method.
-func (m *MockService) StartLambda() {
+func (m *MockService) StartLambda(getFailInfo func() []ss.LogMsgAttr) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StartLambda")
+	m.ctrl.Call(m, "StartLambda", getFailInfo)
 }
 
 // StartLambda indicates an expected call of StartLambda.
-func (mr *MockServiceMockRecorder) StartLambda() *gomock.Call {
+func (mr *MockServiceMockRecorder) StartLambda(getFailInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartLambda", reflect.TypeOf((*MockService)(nil).StartLambda))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartLambda", reflect.TypeOf((*MockService)(nil).StartLambda), getFailInfo)
+}
+
+// Unlock mocks base method.
+func (m *MockService) Unlock() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Unlock")
+}
+
+// Unlock indicates an expected call of Unlock.
+func (mr *MockServiceMockRecorder) Unlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockService)(nil).Unlock))
 }

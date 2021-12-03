@@ -10,6 +10,7 @@
     },
     "service": {
       "endpoint": "",
+      "headerPrefix": "",
       "aws": {
         "accountId": "",
         "region": "",
@@ -26,6 +27,21 @@
           }
         }
       },
+      "app": {
+        "minVer": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "domain": "",
+        "android": {
+          "package": ""
+        },
+        "ios": {
+          "bundle": ""
+        }
+      },
       "firebase": {},
       "privateKey": {
         "rsa": ""
@@ -33,7 +49,10 @@
     },
     "log": {
       "sentry": "optional",
-      "logzio": "optional",
+      "logzio": {
+        "host": "Settings -> Manage tokens -> Data shipping tokens -> Logs -> The Listener URL is",
+        "token": "Settings -> Manage tokens -> Data shipping tokens -> Logs -> Token"
+      },
       "loggly": "optional",
       "papertrail": "optional"
     }

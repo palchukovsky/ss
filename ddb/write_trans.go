@@ -4,24 +4,30 @@
 package ddb
 
 import (
-	"fmt"
-
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/palchukovsky/ss"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // WriteTrans helps to build write-transaction.
 type WriteTrans interface {
-	Result() (dynamodb.TransactWriteItemsInput, error)
+	ss.NoCopy
+
+	Result() *dynamodb.TransactWriteItemsInput
 	IsEmpty() bool
 	GetSize() int
 
 	Create(DataRecord) CreateTrans
-	CreateOrUpdate(DataRecord) CreateTrans
+	CreateOrReplace(DataRecord) CreateTrans
+	Replace(DataRecord) CreateTrans
 	Check(KeyRecord) CheckTrans
 	Update(key KeyRecord, update string) UpdateTrans
 	Delete(KeyRecord) DeleteTrans
+	DeleteIfExisting(KeyRecord) DeleteTrans
+
+	MarshalLogMsg(destination map[string]interface{})
 }
 
 // NewWriteTrans creates new write transaction builder.
@@ -31,26 +37,33 @@ func NewWriteTrans() WriteTrans {
 
 // WriteTransExpression describes the part of WriteTrans
 // witch builds typed expression.
-type WriteTransExpression interface{}
+type WriteTransExpression interface{ ss.NoCopy }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type writeTrans struct {
-	err    error
+	ss.NoCopyImpl
+
 	result []*dynamodb.TransactWriteItem
 }
 
-func (trans writeTrans) Result() (dynamodb.TransactWriteItemsInput, error) {
-	return dynamodb.TransactWriteItemsInput{TransactItems: trans.result},
-		trans.err
+func (trans *writeTrans) Result() *dynamodb.TransactWriteItemsInput {
+	return &dynamodb.TransactWriteItemsInput{TransactItems: trans.result}
 }
 
-func (trans writeTrans) IsEmpty() bool { return len(trans.result) == 0 }
-func (trans writeTrans) GetSize() int  { return len(trans.result) }
+func (trans *writeTrans) IsEmpty() bool { return len(trans.result) == 0 }
+func (trans *writeTrans) GetSize() int  { return len(trans.result) }
+
+func (trans *writeTrans) MarshalLogMsg(destination map[string]interface{}) {
+	ss.MarshalLogMsgAttrDump(trans.result, destination)
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type writeTransExpression struct{ trans *writeTrans }
+type writeTransExpression struct {
+	ss.NoCopyImpl
+	trans *writeTrans
+}
 
 func newWriteTransExpression(
 	trans *writeTrans,
@@ -60,19 +73,23 @@ func newWriteTransExpression(
 	return writeTransExpression{trans: trans}
 }
 
-func (trans writeTransExpression) marshalValues(values Values,
-) map[string]*dynamodb.AttributeValue {
-	if trans.trans.err != nil {
-		return nil
+func (trans *writeTransExpression) marshalValues(
+	source Values,
+	destination *map[string]*dynamodb.AttributeValue,
+) {
+	source.Marshal(destination)
+}
+
+func (*writeTransExpression) addAlias(
+	name string,
+	value string,
+	dest *map[string]*string,
+) {
+	if *dest == nil {
+		*dest = map[string]*string{name: aws.String(value)}
+	} else {
+		(*dest)[name] = aws.String(value)
 	}
-	var result map[string]*dynamodb.AttributeValue
-	result, trans.trans.err = values.Marshal()
-	if trans.trans.err != nil {
-		trans.trans.err = fmt.Errorf(
-			`failed to serialize values: "%w"`,
-			trans.trans.err)
-	}
-	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////

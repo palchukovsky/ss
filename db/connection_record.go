@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/palchukovsky/ss"
-	"github.com/palchukovsky/ss/ddb"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,37 +40,47 @@ func (ConnectionUserIndex) GetProjection() []string { return []string{} }
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type connectionKeyValue struct {
+	ID ss.ConnectionID `json:"id"`
+}
+
+func newConnectionKeyValue(id ss.ConnectionID) connectionKeyValue {
+	return connectionKeyValue{ID: id}
+}
+
 type connectionKey struct {
 	connectionRecord
-	id ss.ConnectionID
+	connectionKeyValue
 }
 
 func NewConnectionKey(id ss.ConnectionID) connectionKey {
-	return connectionKey{id: id}
+	return connectionKey{connectionKeyValue: newConnectionKeyValue(id)}
 }
 
-func (key connectionKey) GetKey() interface{} {
-	return struct {
-		ID ss.ConnectionID `json:"id"`
-	}{ID: key.id}
-}
+func (key connectionKey) GetKey() interface{} { return key.connectionKeyValue }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Connection describes the record of a table with active connections.
 type Connection struct {
 	connectionRecord
-	ID             ss.ConnectionID `json:"id"`
-	User           ss.UserID       `json:"user"`
-	ExpirationTime ddb.Time        `json:"expiration"`
+	connectionKeyValue
+	User           ss.UserID `json:"user"`
+	Version        string    `json:"ver"`
+	ExpirationTime ss.Time   `json:"expiration"`
 }
 
 // NewConnection creates new connection record.
-func NewConnection(id ss.ConnectionID, user ss.UserID) Connection {
+func NewConnection(
+	id ss.ConnectionID,
+	user ss.UserID,
+	version string,
+) Connection {
 	return Connection{
-		ID:             id,
-		User:           user,
-		ExpirationTime: ddb.Now().Add(((time.Hour * 24) * 30) * 1),
+		connectionKeyValue: newConnectionKeyValue(id),
+		User:               user,
+		Version:            version,
+		ExpirationTime:     ss.Now().Add(((time.Hour * 24) * 30) * 1),
 	}
 }
 

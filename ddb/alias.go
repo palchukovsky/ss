@@ -9,8 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-func aliasReservedInString(source string, aliases *map[string]*string,
-) *string {
+////////////////////////////////////////////////////////////////////////////////
+
+func aliasReservedInString(source string, aliases *map[string]*string) *string {
 	matches := getAliasReserverdInStringRegexp().FindAllStringIndex(source, -1)
 	if len(matches) == 0 {
 		return aws.String(source)
@@ -49,7 +50,9 @@ func aliasReservedInString(source string, aliases *map[string]*string,
 	return aws.String(source)
 }
 
-func aliasReservedWord(source string, aliases *map[string]*string,
+func aliasReservedWord(
+	source string,
+	aliases *map[string]*string,
 ) string {
 	if !isReservedWord(source) {
 		return source
@@ -64,8 +67,8 @@ func aliasReservedWord(source string, aliases *map[string]*string,
 
 func isReservedWord(source string) bool {
 	switch source {
-	case "user", "snapshot", "next", "name", "token",
-		"type", "desc", "start", "partition", "data":
+	case "user", "owner", "snapshot", "next", "name", "token", "time", "type",
+		"desc", "start", "partition", "data", "share", "key":
 		return true
 	default:
 		return false
@@ -73,11 +76,15 @@ func isReservedWord(source string) bool {
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 var aliasReserverdInStringRegexp *regexp.Regexp
 
 func getAliasReserverdInStringRegexp() *regexp.Regexp {
 	if aliasReserverdInStringRegexp == nil {
-		aliasReserverdInStringRegexp = regexp.MustCompile(`[^\w\d]`)
+		aliasReserverdInStringRegexp = regexp.MustCompile(`[=\s,\.()]`)
 	}
 	return aliasReserverdInStringRegexp
 }
+
+////////////////////////////////////////////////////////////////////////////////

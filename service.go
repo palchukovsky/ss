@@ -13,24 +13,37 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
+	firebase "firebase.google.com/go"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"google.golang.org/api/option"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Service is the root interface of the service.
 type Service interface {
+	NoCopy
+
+	Now() Time
+
 	Log() Log
 	Product() string
 	Name() string
 	Config() ServiceConfig
 	Build() Build
 
-	StartLambda()
+	// Go runs goroutine with all required checks.
+	// Has to be used instead of native "go" each time when
+	// goroutine executes business logic or could panic.
+	Go(func())
+
+	StartLambda(getFailInfo func() []LogMsgAttr)
 	CompleteLambda(panicValue interface{})
 	GetLambdaTimeout() <-chan time.Time
 
@@ -38,6 +51,8 @@ type Service interface {
 
 	NewAWSConfig() aws.Config
 	NewAWSSessionV1() *session.Session
+
+	Firebase() *firebase.App
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +75,7 @@ func NewService(
 	name := os.Args[0]
 	name = name[strings.LastIndexAny(name, `/\\`)+1:]
 
-	rand.Seed(Now().UnixNano())
+	rand.Seed(Now().Get().UnixNano())
 
 	config := configWrapper.GetSSPtr()
 	{
@@ -91,6 +106,8 @@ func NewService(
 }
 
 type service struct {
+	NoCopyImpl
+
 	name    string
 	product string
 	config  ServiceConfig
@@ -102,15 +119,47 @@ type service struct {
 		Chans       []chan<- time.Time
 		TimeoutTime *time.Time
 	}
+
+	fireabase unsafe.Pointer
 }
 
+func (service *service) Now() Time             { return Now() }
 func (service *service) Log() Log              { return service.log }
 func (service *service) Config() ServiceConfig { return service.config }
 func (service *service) Build() Build          { return service.build }
 func (service *service) Name() string          { return service.name }
 func (service *service) Product() string       { return service.product }
 
-func (service *service) StartLambda() {
+func (service *service) Go(f func()) {
+	go func() {
+		defer func() { service.log.CheckExit(recover()) }()
+		f()
+	}()
+}
+
+func (service *service) Firebase() *firebase.App {
+	result := atomic.LoadPointer(&service.fireabase)
+	if result != nil {
+		return (*firebase.App)(result)
+	}
+	app, err := firebase.NewApp(
+		context.Background(),
+		nil,
+		option.WithCredentialsJSON(service.Config().Firebase.GetJSON()))
+	if err != nil {
+		service.Log().Panic(NewLogMsg(`failed to init Firebase`).AddErr(err))
+	}
+	isSwapped := atomic.CompareAndSwapPointer(
+		&service.fireabase,
+		nil,
+		unsafe.Pointer(app))
+	if isSwapped {
+		return app
+	}
+	return (*firebase.App)(atomic.LoadPointer(&service.fireabase))
+}
+
+func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
 	timeout := time.After(LambdaMaxRunTime)
 	observers := &struct {
 		Chans       []chan<- time.Time
@@ -130,7 +179,8 @@ func (service *service) StartLambda() {
 	}
 
 	if observers == nil {
-		service.Log().Panic(NewLogMsg("previous lambda isn't completed"))
+		service.Log().Panic(
+			NewLogMsg("previous lambda isn't completed").AddAttrs(getFailInfo()))
 	}
 
 	go func() {
@@ -153,7 +203,8 @@ func (service *service) StartLambda() {
 
 		if observers == service.lambdaTimeoutObservers {
 			// Lambda isn't finished yet.
-			service.Log().Error(NewLogMsg("%s lambda timeout", service.Name()))
+			service.Log().Error(
+				NewLogMsg("%s lambda timeout", service.Name()).AddAttrs(getFailInfo()))
 		}
 
 		sync.Wait()

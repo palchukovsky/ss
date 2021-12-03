@@ -11,22 +11,41 @@ import (
 	dbeventlambda "github.com/palchukovsky/ss/lambda/dbevent"
 )
 
+type errorCode string
+
+const (
+	errorCodeVersionIsNotActual = "ver-not-actual"
+)
+
 type response struct {
-	Build   string `json:"build"`
-	Version string `json:"ver"`
+	Build     string    `json:"build"`
+	Version   string    `json:"ver"`
+	ErrorCode errorCode `json:"error,omitempty"`
+	Message   string    `json:"message,omitempty"`
 }
+
+func newDefaultResponse() response {
+	build := ss.S.Build()
+	return response{Build: build.ID, Version: build.Version}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 // Lambda sends initial data for each new connection.
 type lambda struct {
-	gateway sslambda.Gateway
-	message []byte
+	gateway        sslambda.Gateway
+	defaultMessage []byte
+}
+
+func newLambda() dbeventlambda.Lambda {
+	result := lambda{gateway: sslambda.NewGateway()}
+	result.defaultMessage = result.gateway.Serialize(newDefaultResponse())
+	return result
 }
 
 func (lambda lambda) Execute(request dbeventlambda.Request) error {
-	for i, event := range request.GetEvents() {
-		if err := lambda.execute(request, event); err != nil {
-			return dbeventlambda.NewDBEventError(err, i, request)
-		}
+	for _, event := range request.GetEvents() {
+		lambda.execute(request, event)
 	}
 	return nil
 }
@@ -34,25 +53,55 @@ func (lambda lambda) Execute(request dbeventlambda.Request) error {
 func (lambda lambda) execute(
 	request dbeventlambda.Request,
 	event events.DynamoDBEventRecord,
-) error {
+) {
 	if event.EventName != "INSERT" {
-		return nil
+		return
 	}
 
 	connection := struct {
 		ID ss.ConnectionID `json:"id"`
+		// Required by BUZZ-78, but disabled to don't send full record until
+		// version control required (see substring BUZZ-78 for other details):
+		// Version string `json:"ver"`
 	}{}
-	err := apidbevent.UnmarshalEventsDynamoDBAttributeValues(
-		event.Change.Keys, &connection)
-	if err != nil {
-		return err
-	}
+	apidbevent.UnmarshalEventsDynamoDBAttributeValues(
+		// -------------------------------------------------------------------------
+		/*
+			Required by BUZZ-78, but disabled to don't send full record until
+			version control required (see substring BUZZ-78 for other details):
+
+			event.Change.NewImage,
+		*/
+		event.Change.Keys,
+		// -------------------------------------------------------------------------
+		&connection)
+
+	// ---------------------------------------------------------------------------
+	/*
+		Required by BUZZ-78, but disabled to don't send full record until
+		version control required (see substring BUZZ-78 for other details):
+
+		isActualVersion, err := apigateway.CheckClientVersionActuality(
+			connection.Version)
+		if err != nil {
+			return err
+		}
+	*/
+	isActualVersion := true
+	// ---------------------------------------------------------------------------
 
 	gateway := lambda.gateway.NewSessionGatewaySendSession(request.Log())
-	gateway.SendSerialized(connection.ID, lambda.message)
+	if isActualVersion {
+		gateway.SendSerialized(connection.ID, lambda.defaultMessage)
+	} else {
+		message := newDefaultResponse()
+		message.ErrorCode = errorCodeVersionIsNotActual
+		gateway.Send(connection.ID, message)
+	}
+
 	// Init isn't worry is dbevent executed or no, so it doesn't check stat,
 	// just waits until the message will be sent:
-	gateway.CloseAndGetStat()
-
-	return nil
+	gateway.Close()
 }
+
+////////////////////////////////////////////////////////////////////////////////

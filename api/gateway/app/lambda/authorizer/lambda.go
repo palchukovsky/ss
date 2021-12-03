@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -52,27 +51,31 @@ func Run(initService func(projectPackage string, params ss.ServiceParams)) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type request = events.APIGatewayCustomAuthorizerRequestTypeRequest
-type response = events.APIGatewayCustomAuthorizerResponse
+type (
+	request  = events.APIGatewayCustomAuthorizerRequestTypeRequest
+	response = events.APIGatewayCustomAuthorizerResponse
+)
 
-const authHeaderName = "Auth"
+// Headers have to be in lowercase for better compression.
+// Also, Cloudflare converts it in lower case.
+const authHeaderName = "auth"
 
-var authHeaderNameLower = strings.ToLower(authHeaderName)
-
-var policy events.APIGatewayCustomAuthorizerPolicy
+var (
+	policy events.APIGatewayCustomAuthorizerPolicy
+)
 
 func handle(ctx context.Context, request request) (response, error) {
-	ss.S.StartLambda()
+	ss.S.StartLambda(
+		func() []ss.LogMsgAttr {
+			return ss.NewLogMsgAttrRequestDumps(request)
+		})
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	accessToken, hasAccessToken := request.Headers[authHeaderName]
 	if !hasAccessToken {
-		accessToken, hasAccessToken = request.Headers[authHeaderNameLower]
-		if !hasAccessToken {
-			getLog(request).Error(
-				ss.NewLogMsg(`no access token`).AddRequest(request))
-			return response{}, errors.New("no access token")
-		}
+		getLog(request).Error(
+			ss.NewLogMsg(`no access token`).AddRequest(request))
+		return response{}, errors.New("no access token")
 	}
 
 	user, expirationTime, userErr, err := apiauth.ParseAccessToken(accessToken)
@@ -120,13 +123,21 @@ func handle(ctx context.Context, request request) (response, error) {
 
 func getLog(request request) ss.LogStream {
 	return ss.S.Log().NewSession(
-		ss.NewLogPrefix().AddRequestID(request.RequestContext.RequestID))
+		ss.
+			NewLogPrefix(
+				func() []ss.LogMsgAttr {
+					return ss.NewLogMsgAttrRequestDumps(request)
+				}).
+			AddRequestID(request.RequestContext.RequestID))
 }
 
 func getUserLog(request request, user ss.UserID) ss.LogStream {
 	return ss.S.Log().NewSession(
 		ss.
-			NewLogPrefix().
+			NewLogPrefix(
+				func() []ss.LogMsgAttr {
+					return ss.NewLogMsgAttrRequestDumps(request)
+				}).
 			Add(user).
 			AddRequestID(request.RequestContext.RequestID))
 }

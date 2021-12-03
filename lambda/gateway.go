@@ -6,7 +6,6 @@ package lambda
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -49,7 +48,7 @@ func NewGateway() Gateway {
 // NewSessionGatewaySendSession creates a new session to send data thought
 // gateway which has to be closed by method Close after usage.
 func (gateway Gateway) NewSessionGatewaySendSession(
-	log ss.LogSession,
+	log ss.LogStream,
 ) *gatewaySendSession {
 	result := gatewaySendSession{
 		gateway:     gateway,
@@ -57,11 +56,11 @@ func (gateway Gateway) NewSessionGatewaySendSession(
 		log:         log,
 	}
 	result.sync.Add(1)
-	go result.runSender()
+	ss.S.Go(func() { result.runSender() })
 	return &result
 }
 
-func (gateway Gateway) Serialize(data interface{}) ([]byte, error) {
+func (gateway Gateway) Serialize(data interface{}) []byte {
 	result, err := json.Marshal(struct {
 		Method string      `json:"m"`
 		Data   interface{} `json:"d"`
@@ -70,9 +69,13 @@ func (gateway Gateway) Serialize(data interface{}) ([]byte, error) {
 		Data:   data,
 	})
 	if err != nil {
-		err = fmt.Errorf(`failed to serialize data: "%w"`, err)
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(`failed to serialize data to send through gateway`).
+				AddErr(err).
+				AddDump(data))
 	}
-	return result, err
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +84,7 @@ const gatewaySendSessionWarnLevel = 100
 
 type gatewaySendSession struct {
 	gateway Gateway
-	log     ss.LogSession
+	log     ss.LogStream
 	sync    sync.WaitGroup
 
 	messageChan chan gatewayMessage
@@ -96,21 +99,20 @@ type gatewayMessage struct {
 	Data       interface{}
 }
 
-// CloseAndGetStat closes the session and returns number of sent messages
-// and number of skipped (by errors or disconnection).
-func (session *gatewaySendSession) CloseAndGetStat() (uint32, uint32) {
+// CloseAndGetStat closes the session.
+func (session *gatewaySendSession) Close() {
 	session.messageChan <- gatewayMessage{}
 	session.sync.Wait()
 
 	if session.sends+session.skips > gatewaySendSessionWarnLevel {
-		session.log.Warn(ss.NewLogMsg(
-			"processed %d gateway messages, %d sent, %d skipped",
-			session.sends+session.skips,
-			session.sends,
-			session.skips))
+		session.log.Warn(
+			ss.
+				NewLogMsg(
+					"processed %d gateway messages, %d sent, %d skipped",
+					session.sends+session.skips,
+					session.sends,
+					session.skips))
 	}
-
-	return session.sends, session.skips
 }
 
 func (session *gatewaySendSession) Send(
@@ -124,9 +126,10 @@ func (session *gatewaySendSession) Send(
 
 	if atomic.AddUint32(&session.added, 1)%gatewaySendSessionWarnLevel == 0 {
 		session.log.Warn(
-			ss.NewLogMsg(
-				"already added %d messages to send through gateway...",
-				atomic.LoadUint32(&session.added)))
+			ss.
+				NewLogMsg(
+					"already added %d messages to send through gateway...",
+					atomic.LoadUint32(&session.added)))
 	}
 }
 
@@ -148,24 +151,17 @@ func (session *gatewaySendSession) runSender() {
 
 		data, isSerialized := message.Data.([]byte)
 		if !isSerialized {
-			var err error
-			if data, err = session.gateway.Serialize(message.Data); err != nil {
-				session.log.Panic(
-					ss.NewLogMsg("failed to serialize message for gateway").
-						AddErr(err).
-						Add(message.Connection).
-						AddDump(data))
-			}
+			data = session.gateway.Serialize(message.Data)
 		}
 
 		doneChan := make(chan struct{})
-		go func() {
+		ss.S.Go(func() {
 			session.send(message.Connection, data)
 			doneChan <- struct{}{}
-		}()
+		})
 
 		session.sync.Add(1)
-		go func() {
+		ss.S.Go(func() {
 			defer session.sync.Done()
 
 			select {
@@ -177,7 +173,8 @@ func (session *gatewaySendSession) runSender() {
 				break
 			}
 
-			logMessage := ss.NewLogMsg("gateway message sending timeout").
+			logMessage := ss.
+				NewLogMsg("gateway message sending timeout").
 				Add(message.Connection)
 			if isSerialized {
 				logMessage.AddDump(string(data))
@@ -185,7 +182,7 @@ func (session *gatewaySendSession) runSender() {
 				logMessage.AddDump(message.Data)
 			}
 			session.log.Warn(logMessage)
-		}()
+		})
 
 	}
 }
@@ -195,21 +192,22 @@ func (session *gatewaySendSession) send(
 	data []byte,
 ) {
 
-	request, _ := session.
+	_, err := session.
 		gateway.
 		client.
-		PostToConnectionRequest(
+		PostToConnection(
 			&apigatewaymanagementapi.PostToConnectionInput{
 				ConnectionId: aws.String(string(connection)),
 				Data:         data,
 			})
 
 	var processed uint32
-	if err := request.Send(); err != nil {
+	if err != nil {
 
 		var goneErr *apigatewaymanagementapi.GoneException
 		if errors.As(err, &goneErr) {
-			logMessage := ss.NewLogMsg("no connection to send gateway message").
+			logMessage := ss.
+				NewLogMsg("no connection to send gateway message").
 				Add(connection)
 			if ss.S.Config().IsExtraLogEnabled() {
 				logMessage.AddDump(string(data))
@@ -217,7 +215,8 @@ func (session *gatewaySendSession) send(
 			session.log.Debug(logMessage)
 		} else {
 			session.log.Error(
-				ss.NewLogMsg("failed to send gateway message").
+				ss.
+					NewLogMsg("failed to send gateway message").
 					AddErr(err).
 					Add(connection).
 					AddDump(string(data)))

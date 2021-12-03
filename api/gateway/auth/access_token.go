@@ -5,7 +5,6 @@ package apiauth
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/palchukovsky/ss"
 )
@@ -26,14 +25,14 @@ func NewAccessToken(user ss.UserID, expirationTime int64,
 // ParseAccessToken parses token and verifies its signature. If access token
 // is the valid returns user ID and tokening expiration time.
 // Otherwise returns pair "user error" and "error of working".
-func ParseAccessToken(source string) (ss.UserID, time.Time, error, error) {
+func ParseAccessToken(source string) (ss.UserID, ss.Time, error, error) {
 	token := accessToken{}
 	if userErr, err := parseToken(source, &token); err != nil || userErr != nil {
-		return token.User, time.Time{}, userErr, err
+		return token.User, ss.Time{}, userErr, err
 	}
 	expirationTime, err := parseTimeToken(token.ExpirationTime)
 	if err != nil {
-		return token.User, time.Time{}, nil, err
+		return token.User, ss.Time{}, nil, err
 	}
 	return token.User, expirationTime, nil, nil
 }

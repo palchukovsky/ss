@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 )
 
+type LogSource interface{ Log() LogStream }
+
 // Log describes product log interface.
 type LogStream interface {
-	// NewLogSession creates the log session which allows setting records
-	// prefix for each session message.
-	NewSession(LogPrefix) LogSession
+	NoCopy
 
 	Debug(*LogMsg)
 	Info(*LogMsg)
@@ -21,22 +21,30 @@ type LogStream interface {
 	Error(*LogMsg)
 	Panic(*LogMsg)
 
-	checkPanic(
-		panicValue interface{},
-		getPanicDetails func() *LogMsg)
+	CheckPanic(panicValue interface{}, errorMessage string)
+	checkPanic(panicValue interface{}, getPanicDetails func() *LogMsg)
 }
 
 type Log interface {
 	LogStream
+
 	Started()
+
+	// NewLogSession creates the log session which allows setting records
+	// prefix for each session message.
+	NewSession(LogPrefix) LogSession
+
+	// CheckExit makes final check for panic, writes all error data.
+	// It has to be the one and the lowest level check in the call.
 	CheckExit(panicValue interface{})
 }
 
 type LogSession interface {
 	LogStream
-	CheckPanic(
-		panicValue interface{},
-		getPanicDetails func() *LogMsg)
+
+	// NewLogSession creates the log session which allows setting records
+	// prefix for each session message.
+	NewSession(LogPrefix) LogSession
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -67,11 +75,7 @@ type logDestination interface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func NewLog(
-	projectPackage string,
-	module string,
-	config Config,
-) Log {
+func NewLog(projectPackage string, module string, config Config) Log {
 
 	result := serviceLog{
 		destinations: []logDestination{},
@@ -82,6 +86,7 @@ func NewLog(
 				"id":      config.SS.Build.ID,
 				"commit":  config.SS.Build.Commit,
 				"builder": config.SS.Build.Builder,
+				"env":     config.SS.Build.GetEnvironment(),
 			},
 			"aws": map[string]interface{}{
 				"region": config.SS.Service.AWS.Region,
@@ -148,12 +153,10 @@ func NewLog(
 }
 
 type serviceLog struct {
-	NoCopy
+	NoCopyImpl
 
 	destinations []logDestination
 	sentry       sentry
-
-	isPanic int32
 
 	statics        map[string]interface{}
 	sequenceNumber uint32
@@ -167,6 +170,9 @@ type serviceLogMessage struct {
 }
 
 func (l *serviceLog) Started() {
+	if !S.Config().IsExtraLogEnabled() {
+		return
+	}
 	l.Debug(NewLogMsg("started"))
 }
 
@@ -174,25 +180,66 @@ func (l *serviceLog) NewSession(prefix LogPrefix) LogSession {
 	return newLogSession(l, prefix)
 }
 
+func (l *serviceLog) CheckPanic(panicValue interface{}, errorMessage string) {
+	l.checkPanic(panicValue, func() *LogMsg { return NewLogMsg(errorMessage) })
+}
+
 func (l *serviceLog) CheckExit(panicValue interface{}) {
+
+	// This sync allows sending all messages before exiting from lambda,
+	// even if it's not an error or panic - CheckExit is the last call
+	// from lambda to log, and it has to wait until records will be sent.
 	defer l.sync()
-	l.checkPanic(
+
+	message := l.checkPanicValue(
 		panicValue,
 		func() *LogMsg { return NewLogMsg("panic detected at exit") })
+	if message == nil {
+		return
+	}
+
+	l.sentry.Recover(message)
+	l.forEachDestination(func(d logDestination) error {
+		return d.WritePanic(message)
+	})
+
+	l.sync() //  it could be the last chance to show log messages in the queue
+
+	log.Panicf(
+		"%s %s",
+		message.GetMessage(),
+		message.ConvertAttributesToJSON())
+}
+
+func (l *serviceLog) checkPanicValue(
+	panicValue interface{},
+	getPanicDetails func() *LogMsg,
+) *LogMsg {
+	if panicValue == nil {
+		return nil
+	}
+
+	if result, isMessage := panicValue.(*LogMsg); isMessage {
+		// Collecting info from try-catch levels.
+		result.MergeWithLowLevelMsg(getPanicDetails())
+		return result
+	}
+
+	// It's unhandled panic, and panic raised not thought log.Panic.
+	result := getPanicDetails()
+	result.AddPanic(panicValue)
+	return result
 }
 
 func (l *serviceLog) checkPanic(
 	panicValue interface{},
 	getPanicDetails func() *LogMsg,
 ) {
-	if panicValue == nil {
+	message := l.checkPanicValue(panicValue, getPanicDetails)
+	if message == nil {
 		return
 	}
-	if atomic.LoadInt32(&l.isPanic) != 0 {
-		// Rethrow.
-		panic(panicValue)
-	}
-	l.panic(panicValue, getPanicDetails())
+	l.panic(message)
 }
 
 func (l *serviceLog) Debug(m *LogMsg) {
@@ -258,7 +305,15 @@ func (l *serviceLog) Error(m *LogMsg) {
 	}
 }
 
-func (l *serviceLog) Panic(m *LogMsg) { l.panic(m.GetMessage(), m) }
+func (l *serviceLog) Panic(message *LogMsg) {
+	l.setStatics(
+		logLevelPanic,
+		atomic.AddUint32(&l.sequenceNumber, 1),
+		message)
+	message.AddCurrentStack()
+
+	l.panic(message)
+}
 
 func (l *serviceLog) setStatics(
 	level logLevel,
@@ -272,28 +327,10 @@ func (l *serviceLog) setStatics(
 	message.SetLevel(level)
 }
 
-func (l *serviceLog) panic(panicValue interface{}, message *LogMsg) {
-
-	l.setStatics(
-		logLevelPanic,
-		atomic.AddUint32(&l.sequenceNumber, 1),
-		message)
-	message.AddCurrentStack()
-	message.AddPanic(panicValue)
-
-	l.sentry.Recover(panicValue, message)
-	l.forEachDestination(func(d logDestination) error {
-		return d.WritePanic(message)
-	})
-
-	atomic.StoreInt32(&l.isPanic, 1)
-
-	l.sync() //  it could be the last chance to show log messages in the queue
-
-	log.Panicf(
-		"%s %s",
-		message.GetMessage(),
-		message.ConvertAttributesToJSON())
+func (l *serviceLog) panic(message *LogMsg) {
+	// Just start proccess of panicing, to collect debug info on all levels
+	// of catching.
+	panic(message)
 }
 
 func (l *serviceLog) print(message *LogMsg) {
@@ -371,14 +408,13 @@ func (l *serviceLog) runWriter() {
 ////////////////////////////////////////////////////////////////////////////////
 
 type serviceLogSession struct {
+	NoCopyImpl
+
 	log    LogStream
 	prefix LogPrefix
 }
 
-func newLogSession(
-	log LogStream,
-	prefix LogPrefix,
-) LogSession {
+func newLogSession(log LogStream, prefix LogPrefix) LogSession {
 	return &serviceLogSession{log: log, prefix: prefix}
 }
 
@@ -386,36 +422,36 @@ func (s *serviceLogSession) NewSession(prefix LogPrefix) LogSession {
 	return newLogSession(s, prefix)
 }
 
-func (s serviceLogSession) CheckPanic(
+func (s *serviceLogSession) CheckPanic(
 	panicValue interface{},
-	getPanicDetails func() *LogMsg,
+	errorMessage string,
 ) {
-	s.checkPanic(panicValue, getPanicDetails)
+	s.checkPanic(panicValue, func() *LogMsg { return NewLogMsg(errorMessage) })
 }
 
-func (s serviceLogSession) checkPanic(
+func (s *serviceLogSession) checkPanic(
 	panicValue interface{},
 	getPanicDetails func() *LogMsg,
 ) {
 	s.log.checkPanic(
 		panicValue,
-		func() *LogMsg { return getPanicDetails().AddPrefix(s.prefix) })
+		func() *LogMsg { return getPanicDetails().AddFailPrefix(s.prefix) })
 }
 
-func (s serviceLogSession) Debug(m *LogMsg) {
-	s.log.Debug(m.AddPrefix(s.prefix))
+func (s *serviceLogSession) Debug(m *LogMsg) {
+	s.log.Debug(m.AddInfoPrefix(s.prefix))
 }
-func (s serviceLogSession) Info(m *LogMsg) {
-	s.log.Info(m.AddPrefix(s.prefix))
+func (s *serviceLogSession) Info(m *LogMsg) {
+	s.log.Info(m.AddInfoPrefix(s.prefix))
 }
-func (s serviceLogSession) Warn(m *LogMsg) {
-	s.log.Warn(m.AddPrefix(s.prefix))
+func (s *serviceLogSession) Warn(m *LogMsg) {
+	s.log.Warn(m.AddFailPrefix(s.prefix))
 }
-func (s serviceLogSession) Error(m *LogMsg) {
-	s.log.Error(m.AddPrefix(s.prefix))
+func (s *serviceLogSession) Error(m *LogMsg) {
+	s.log.Error(m.AddFailPrefix(s.prefix))
 }
-func (s serviceLogSession) Panic(m *LogMsg) {
-	s.log.Panic(m.AddPrefix(s.prefix))
+func (s *serviceLogSession) Panic(m *LogMsg) {
+	s.log.Panic(m.AddFailPrefix(s.prefix))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

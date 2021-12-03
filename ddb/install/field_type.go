@@ -69,8 +69,8 @@ func getFiledType(record ddb.DataRecord, fieldName string) string {
 		ss.S.Log().Panic(
 			ss.NewLogMsg(
 				"failed to find filed type for field %q in table %q",
-				record.GetTable(),
-				fieldName))
+				fieldName,
+				record.GetTable()))
 	}
 	return result
 }

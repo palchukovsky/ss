@@ -24,5 +24,8 @@ func (table user) Create() error {
 		[]ddb.IndexRecord{&lambda.FirebaseIndex{}})
 }
 
-func (user) Setup() error      { return nil }
+func (table user) Setup() error {
+	return table.EnableTimeToLive("anonymExpiration")
+}
+
 func (user) InsertData() error { return nil }

@@ -5,12 +5,12 @@ package ddb
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// SubscriptionVersion is a version of subscription.
-type SubscriptionVersion uint
+// MembershipVersion is a version of membership.
+type MembershipVersion uint
 
-// NewSubscriptionVersion creates new subscription version instance.
-func NewSubscriptionVersion(source uint) SubscriptionVersion {
-	return SubscriptionVersion(source)
+// NewMembershipVersion creates new membership version instance.
+func NewMembershipVersion(source uint) MembershipVersion {
+	return MembershipVersion(source)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

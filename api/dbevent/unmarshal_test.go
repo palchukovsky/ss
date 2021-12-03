@@ -28,9 +28,9 @@ type dbeventUnmarshalTestRecord struct {
 			Base uint `json:"base"`
 		} `json:"spot"`
 	} `json:"rights"`
-	Version  ddb.SubscriptionVersion `json:"ver"`
+	Version  ddb.MembershipVersion `json:"ver"`
 	Snapshot struct {
-		StartTime *ddb.DateOrTime `json:"start,omitempty"`
+		StartTime *ss.DateOrTime `json:"start,omitempty"`
 		Location  *struct {
 			LatLng [2]float32 `json:"latLng"`
 			Name   []string   `json:"name,omitempty"`
@@ -39,7 +39,7 @@ type dbeventUnmarshalTestRecord struct {
 		Link           string `json:"link,omitempty"`
 		SpotVisibility uint   `json:"spotVisible"`
 	} `json:"snapshot"`
-	FireTime *ddb.DateOrTime `json:"fire,omitempty"`
+	FireTime *ss.DateOrTime `json:"fire,omitempty"`
 }
 
 func Test_API_Dbevent_Unmarshal(test *testing.T) {
@@ -54,10 +54,11 @@ func Test_API_Dbevent_Unmarshal(test *testing.T) {
 			&source))
 
 	var record dbeventUnmarshalTestRecord
-	assert.NoError(
+	assert.NotPanics(func() {
 		apidbevent.UnmarshalEventsDynamoDBAttributeValues(
 			source,
-			&record))
+			&record)
+	})
 
 	// It's not required to compare all fields, just several to see that
 	// it has wrote somthing into result.

@@ -18,13 +18,20 @@ func IsConditionalCheckError(source error) bool {
 	if !errors.As(source, &awsErr) {
 		return false
 	}
-	return awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException
+	switch awsErr.Code() {
+	case dynamodb.ErrCodeConditionalCheckFailedException,
+		dynamodb.ErrCodeTransactionCanceledException:
+		{
+			return true
+		}
+	}
+	return false
 }
 
 // ParseErrorConditionalCheckFailed parses error to check
 // what condition was failed. Returns nil if it's not a error "condition failed"
 // or if failed conditions outside provided range.
-func ParseErrorConditionalCheckFailed(
+func parseErrorConditionalCheckFailed(
 	source error,
 	conditionFromIndex int,
 	conditionsNumber int,
@@ -45,11 +52,15 @@ func ParseErrorConditionalCheckFailed(
 		return nil
 	}
 
-	conditionTotalLen := conditionFromIndex + conditionsNumber
-
 	conditionResults := strings.Split(message[begin+1:end], ",")
-	if len(conditionResults) < conditionTotalLen {
-		return nil
+	var conditionTotalLen int
+	if conditionsNumber != 0 {
+		conditionTotalLen = conditionFromIndex + conditionsNumber
+		if len(conditionResults) < conditionTotalLen {
+			return nil
+		}
+	} else {
+		conditionTotalLen = len(conditionResults)
 	}
 
 	result := make([]bool, conditionsNumber)

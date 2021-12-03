@@ -40,12 +40,23 @@ type ConfigWrapper interface {
 ////////////////////////////////////////////////////////////////////////////////
 
 type ServiceConfig struct {
-	Endpoint   string         `json:"endpoint"`
-	AWS        AWSConfig      `json:"aws"`
-	Firebase   FirebaseConfig `json:"firebase"`
-	PrivateKey struct {
+	Endpoint     string         `json:"endpoint"`
+	HeaderPrefix string         `json:"headerPrefix"`
+	AWS          AWSConfig      `json:"aws"`
+	Firebase     FirebaseConfig `json:"firebase"`
+	PrivateKey   struct {
 		RSA RSAPrivateKey `json:"rsa"`
 	} `json:"privateKey"`
+	App struct {
+		MinVersion [4]uint `json:"minVer"`
+		Domain     string  `json:"domain"`
+		Android    struct {
+			Package string `json:"package"`
+		} `json:"android"`
+		IOS struct {
+			Bundle string `json:"bundle"`
+		} `json:"ios"`
+	} `json:"app"`
 }
 
 func (ServiceConfig) IsExtraLogEnabled() bool { return !S.Build().IsProd() }
@@ -79,15 +90,29 @@ type Build struct {
 }
 
 // IsProd returns true if build is production.
-func (build Build) IsProd() bool { return build.Version != "dev" }
+func (build Build) IsProd() bool { return build.GetEnvironment() == "prod" }
+
+func (build Build) GetEnvironment() string {
+	switch build.Version {
+	case "stage", "dev", "debug":
+		return build.Version
+	default:
+		return "prod"
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type logConfig struct {
-	Sentry     string `json:"sentry,omitempty"`
-	Loggly     string `json:"loggly,omitempty"`
-	Logzio     string `json:"logzio,omitempty"`
-	Papertrail string `json:"papertrail,omitempty"`
+	Sentry     string        `json:"sentry,omitempty"`
+	Loggly     string        `json:"loggly,omitempty"`
+	Logzio     *logzioConfig `json:"logzio,omitempty"`
+	Papertrail string        `json:"papertrail,omitempty"`
+}
+
+type logzioConfig struct {
+	Host  string `json:"host"`
+	Token string `json:"token"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////

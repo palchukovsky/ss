@@ -7,6 +7,9 @@
 	mock \
 .DEFAULT_GOAL = all
 
+ORGANIZATION = palchukovsky
+CODE_REPO = github.com/${ORGANIZATION}/ss
+
 GO_GET_CMD = go get -v
 
 define echo_start
@@ -70,8 +73,9 @@ mock: ## Generate mock interfaces for unit-tests.
 	@$(call echo_start)
 # "go list ... " in the next run required as a workaround for error - first start mockgen fails with errot at "go list ...":
 	-go list -e -compiled=true -test=true ./*
-	$(call gen_mock,service,Service)
-	$(call gen_mock,log,Log)
+#	$(call gen_mock,service,Service)
+	$(call gen_mock_aux,service,Service,${CODE_REPO}=no_copy.go)
+	$(call gen_mock_aux,log,Log,${CODE_REPO}=no_copy.go)
 # "go list ... " in the next run required as a workaround for error - first start mockgen fails with errot at "go list ...":
 	-go list -e -compiled=true -test=true ./ddb/install/*
 	$(call gen_mock,ddb/install/db,DB)

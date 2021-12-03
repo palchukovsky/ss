@@ -22,6 +22,7 @@ func ForEachTable(
 	tables := append(
 		installer.NewTables(db, log),
 		newConnectionTable(db, log),
+		newDeviceTable(db, log),
 		newUserTable(db, log))
 
 	for _, table := range tables {

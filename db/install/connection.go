@@ -25,7 +25,15 @@ func (table connection) Create() error {
 
 func (table connection) Setup() error {
 	err := table.EnableStreams(
+		// -------------------------------------------------------------------------
+		/*
+			Required by BUZZ-78, but disabled to don't send full record until
+			version control required (see substring BUZZ-78 for other details):
+
+			ddbinstall.StreamViewTypeNew,
+		*/
 		ddbinstall.StreamViewTypeNone,
+		// -------------------------------------------------------------------------
 		[]ddbinstall.Stream{
 			ddbinstall.NewStream("Init"),
 		})

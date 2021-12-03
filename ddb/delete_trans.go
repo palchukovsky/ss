@@ -22,27 +22,18 @@ type DeleteTrans interface {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (trans *writeTrans) Delete(key KeyRecord) DeleteTrans {
-	input := &dynamodb.Delete{
-		TableName: aws.String(ss.S.NewBuildEntityName(key.GetTable())),
-	}
-	result := deleteTrans{
-		writeTransExpression: newWriteTransExpression(
-			trans, dynamodb.TransactWriteItem{Delete: input}),
-		input: input,
-	}
-	if trans.err != nil {
-		return result
-	}
-	result.input.Key, trans.err = dynamodbattribute.MarshalMap(key.GetKey())
-	if trans.err != nil {
-		trans.err = fmt.Errorf(
-			`failed to serialize key to delete from table %q: "%w", key: "%v"`,
-			key.GetTable(), trans.err, key.GetKey())
-	}
-	result.input.ConditionExpression = aws.String(fmt.Sprintf(
-		"attribute_exists(%s)", aliasReservedWord(
-			key.GetKeyPartitionField(), &result.input.ExpressionAttributeNames)))
+	result := trans.newDeleteTrans(key)
+	result.input.ConditionExpression = aws.String(
+		fmt.Sprintf(
+			"attribute_exists(%s)",
+			aliasReservedWord(
+				key.GetKeyPartitionField(),
+				&result.input.ExpressionAttributeNames)))
 	return result
+}
+
+func (trans *writeTrans) DeleteIfExisting(key KeyRecord) DeleteTrans {
+	return trans.newDeleteTrans(key)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -52,14 +43,48 @@ type deleteTrans struct {
 	input *dynamodb.Delete
 }
 
-func (trans deleteTrans) Values(values Values) UpdateTrans {
-	trans.input.ExpressionAttributeValues = trans.marshalValues(values)
+func (trans *writeTrans) newDeleteTrans(key KeyRecord) *deleteTrans {
+	input := &dynamodb.Delete{
+		TableName: aws.String(ss.S.NewBuildEntityName(key.GetTable())),
+	}
+	result := &deleteTrans{
+		writeTransExpression: newWriteTransExpression(
+			trans, dynamodb.TransactWriteItem{Delete: input}),
+		input: input,
+	}
+	var err error
+	result.input.Key, err = dynamodbattribute.MarshalMap(key.GetKey())
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg(
+					"failed to serialize key to delete from table %q",
+					key.GetTable()).
+				AddDump(key).
+				AddDump(input).
+				AddErr(err))
+	}
+	return result
+}
+
+func (trans *deleteTrans) Values(values Values) UpdateTrans {
+	trans.marshalValues(values, &trans.input.ExpressionAttributeValues)
 	return trans
 }
 
-func (trans deleteTrans) Condition(condition string) UpdateTrans {
-	*trans.input.ConditionExpression += " and " +
-		*aliasReservedInString(condition, &trans.input.ExpressionAttributeNames)
+func (trans *deleteTrans) Value(name string, value interface{}) UpdateTrans {
+	return trans.Values(Values{name: value})
+}
+
+func (trans *deleteTrans) Alias(name, value string) UpdateTrans {
+	trans.addAlias(name, value, &trans.input.ExpressionAttributeNames)
+	return trans
+}
+
+func (trans *deleteTrans) Condition(condition string) UpdateTrans {
+	*trans.input.ConditionExpression += " and (" +
+		*aliasReservedInString(condition, &trans.input.ExpressionAttributeNames) +
+		")"
 	return trans
 }
 

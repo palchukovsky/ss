@@ -51,13 +51,13 @@ func parseToken(source string, result interface{}) (error, error) {
 	return nil, nil
 }
 
-func parseTimeToken(source string) (time.Time, error) {
+func parseTimeToken(source string) (ss.Time, error) {
 	result, err := strconv.ParseInt(source, 16, 64)
 	if err != nil {
-		return time.Time{}, fmt.Errorf(`field to parse time token %q: "%w"`,
+		return ss.Time{}, fmt.Errorf(`field to parse time token %q: "%w"`,
 			source, err)
 	}
-	return time.Unix(result, 0), nil
+	return ss.NewTime(time.Unix(result, 0)), nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

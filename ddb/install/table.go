@@ -48,7 +48,10 @@ func NewTableAbstraction(
 		record: record,
 		name:   ss.S.NewBuildEntityName(record.GetTable()),
 	}
-	result.log = log.NewSession(ss.NewLogPrefix().AddVal("table", result.name))
+	result.log = log.NewSession(
+		ss.
+			NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+			AddVal("table", result.name))
 	return result
 }
 

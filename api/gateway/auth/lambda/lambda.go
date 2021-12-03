@@ -1,37 +1,96 @@
 // Copyright 2021, the SS project owners. All rights reserved.
 // Please see the OWNERS and LICENSE files for details.
 
+// Answers "200 OK" with backend information at success, or "406 Not Acceptable"
+// if the app client version has to be upgraded.
+
 package authlambda
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
-	firebase "firebase.google.com/go"
 	"firebase.google.com/go/auth"
 
-	petname "github.com/dustinkirkland/golang-petname"
 	ss "github.com/palchukovsky/ss"
+	apigateway "github.com/palchukovsky/ss/api/gateway"
 	apiauth "github.com/palchukovsky/ss/api/gateway/auth"
 	ssdb "github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
 	rest "github.com/palchukovsky/ss/lambda/gateway/rest"
-	"google.golang.org/api/option"
 )
 
-func Init(initService func(projectPackage string, params ss.ServiceParams)) {
+type request = string // token ID
+
+type response struct {
+	User        responseUser        `json:"user"`
+	AccessToken apiauth.AccessToken `json:"token"`
+	Backend     responseBackend     `json:"back"`
+}
+
+type responseUser struct {
+	ID          ss.UserID `json:"id"`
+	Name        string    `json:"name"`
+	Email       string    `json:"email,omitempty"`
+	PhoneNumber string    `json:"phone,omitempty"`
+	PhotoURL    string    `json:"photoUrl,omitempty"`
+	IsNew       *bool     `json:"new,omitempty"`
+}
+
+type responseBackend struct {
+	Endpoint string `json:"endpoint"`
+	Build    string `json:"build"`
+	Version  string `json:"ver"`
+}
+
+func newResponse(
+	user FirebaseIndex,
+	accessToken apiauth.AccessToken,
+	isNew bool,
+) response {
+	build := ss.S.Build()
+	result := response{
+		User: responseUser{
+			ID:          user.ID,
+			Name:        user.Name,
+			Email:       user.Email,
+			PhoneNumber: user.PhoneNumber,
+			PhotoURL:    user.PhotoURL,
+		},
+		AccessToken: accessToken,
+		Backend: responseBackend{
+			Endpoint: ss.S.Config().Endpoint,
+			Build:    build.ID,
+			Version:  build.Version,
+		},
+	}
+	if isNew {
+		result.User.IsNew = &isNew
+	}
+	return result
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type Policy interface {
+	CheckNewUserName(newUserDisplayName string) string
+	CheckCreateUserTans(trans ddb.WriteTrans, user ss.UserID, isAnonymous bool)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func Init(
+	initService func(projectPackage string, params ss.ServiceParams),
+	policy Policy,
+) {
 	apiauth.Init(
 		func() rest.Lambda {
-			result := lambda{db: ddb.GetClientInstance()}
-			options := option.WithCredentialsJSON(
-				ss.S.Config().Firebase.GetJSON())
-			firebase, err := firebase.NewApp(context.Background(), nil, options)
-			if err != nil {
-				ss.S.Log().Panic(ss.NewLogMsg(`failed to init Firebase`).AddErr(err))
+			result := lambda{
+				db:     ddb.GetClientInstance(),
+				policy: policy,
 			}
-			result.firebase, err = firebase.Auth(context.Background())
+			var err error
+			result.firebase, err = ss.S.Firebase().Auth(context.Background())
 			if err != nil {
 				ss.S.Log().Panic(ss.NewLogMsg(`failed auth Firebase`).AddErr(err))
 			}
@@ -51,202 +110,203 @@ func Run() { apiauth.Run() }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type request = string // token ID
-
-type response struct {
-	User        responseUser        `json:"user"`
-	AccessToken apiauth.AccessToken `json:"token"`
-	Backend     responseBackend     `json:"back"`
-}
-
-type responseUser struct {
-	ID          ss.UserID `json:"id"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email,omitempty"`
-	PhoneNumber string    `json:"phone,omitempty"`
-	PhotoURL    string    `json:"photoUrl,omitempty"`
-}
-
-type responseBackend struct {
-	Endpoint string `json:"endpoint"`
-	Build    string `json:"build"`
-	Version  string `json:"ver"`
-}
-
-func newResponse(
-	user FirebaseIndex,
-	accessToken apiauth.AccessToken,
-) response {
-	build := ss.S.Build()
-	return response{
-		User: responseUser{
-			ID:          user.ID,
-			Name:        user.Name,
-			Email:       user.Email,
-			PhoneNumber: user.PhoneNumber,
-			PhotoURL:    user.PhotoURL,
-		},
-		AccessToken: accessToken,
-		Backend: responseBackend{
-			Endpoint: ss.S.Config().Endpoint,
-			Build:    build.ID,
-			Version:  build.Version,
-		},
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 type lambda struct {
 	db       ddb.Client
 	firebase *auth.Client
+	policy   Policy
 }
 
 func (lambda lambda) Execute(request rest.Request) error {
 
-	token, firebaseUser, err := lambda.getFirebaseUser(request)
-	if err != nil || token == nil || firebaseUser == nil {
+	if ok, err := lambda.CheckClientVersionActuality(request); err != nil {
 		return err
+	} else if !ok {
+		request.RespondWithNotAcceptable()
+		return nil
 	}
 
-	user, err := lambda.findUser(firebaseUser.UID)
-	if err != nil {
-		return fmt.Errorf("filed to find user by Firebase ID %q", token.UID)
+	token, firebaseUser, isAnonymous := lambda.getFirebaseUser(request)
+	if token == nil || firebaseUser == nil {
+		return nil
 	}
 
+	user := lambda.findUser(firebaseUser.UID)
 	isNew := user == nil
 	if user == nil {
 		user = &FirebaseIndex{}
 	}
 
 	if isNew {
-		isNew, err = lambda.createUserUser(*firebaseUser, user)
-		if err != nil {
-			return err
-		}
+		isNew = lambda.createUserUser(*firebaseUser, user, isAnonymous, request)
 		if isNew {
 			request.Log().Info(
-				ss.NewLogMsg(
-					"new user added from Firebase, access expires after %d mins",
-					int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
+				ss.
+					NewLogMsg(
+						"new user added from Firebase, access expires after %d mins",
+						int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
 					Add(user.ID).
 					AddVal("firebaseSignInProvider", token.Firebase.SignInProvider))
 		}
 	}
 
 	if !isNew {
+		if !user.IsAnonymous() && isAnonymous {
+			request.Log().Panic(
+				ss.
+					NewLogMsg("record was is not anonymous, but now it is").
+					AddDump(*user))
+		}
 		request.Log().Debug(
-			ss.NewLogMsg(
-				"user authed by Firebase, access expires after %d mins",
-				int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
+			ss.
+				NewLogMsg(
+					"user authed by Firebase, access expires after %d mins",
+					int(time.Unix(token.Expires, 0).Sub(time.Now().UTC()).Minutes())).
 				Add(user.ID).
 				AddVal("firebaseSignInProvider", token.Firebase.SignInProvider))
-		lambda.updateUser(*firebaseUser, request, user)
+		lambda.updateUser(
+			*firebaseUser,
+			request,
+			user,
+			ss.BoolPtrIfSet(isAnonymous))
 	}
 
 	accessToken, err := apiauth.NewAccessToken(user.ID, token.Expires)
 	if err != nil {
-		return fmt.Errorf(`failed to create access token: "%w"`, err)
+		request.Log().Panic(
+			ss.NewLogMsg(`failed to create access token`).AddErr(err))
 	}
 
-	request.Respond(newResponse(*user, accessToken))
+	request.Respond(newResponse(*user, accessToken, isNew))
 	return nil
 }
 
-func (lambda lambda) getFirebaseUser(lambdaRequest rest.Request,
-) (*auth.Token, *auth.UserRecord, error) {
+func (lambda lambda) CheckClientVersionActuality(
+	lambdaRequest rest.Request,
+) (
+	bool,
+	error,
+) {
+	return apigateway.CheckClientVersionActuality(
+		lambdaRequest.ReadClientVersion())
+}
+
+func (lambda lambda) getFirebaseUser(
+	lambdaRequest rest.Request,
+) (
+	token *auth.Token,
+	user *auth.UserRecord,
+	isAnonymous bool,
+) {
 
 	var tokenID request
-	if err := lambdaRequest.ReadRequest(&tokenID); err != nil {
-		return nil, nil, err
-	}
+	lambdaRequest.ReadRequest(&tokenID)
 
-	token, err := lambda.firebase.VerifyIDTokenAndCheckRevoked(
-		lambdaRequest.GetContext(), tokenID)
+	var err error
+	token, err = lambda.firebase.VerifyIDTokenAndCheckRevoked(
+		lambdaRequest.GetContext(),
+		tokenID)
 	if err != nil {
-		return nil, nil, fmt.Errorf(`failed to verify: "%w"`, err)
+		lambdaRequest.Log().Panic(
+			ss.NewLogMsg(`failed to verify token`).AddErr(err))
 	}
 
 	if token.UID == "" {
-		return token, nil, fmt.Errorf("token is not authed by Firebase")
+		lambdaRequest.Log().Panic(
+			ss.NewLogMsg(`token is not authed by Firebase`).AddDump(*token))
 	}
 
-	user, err := lambda.firebase.GetUser(lambdaRequest.GetContext(), token.UID)
+	user, err = lambda.firebase.GetUser(lambdaRequest.GetContext(), token.UID)
 	if err != nil {
-		return token, nil, fmt.Errorf(`failed to get Firebase user %q: "%w"`,
-			token.UID, err)
+		lambdaRequest.Log().Panic(
+			ss.NewLogMsg(`failed to get Firebase user`).AddDump(*token).AddErr(err))
 	}
 	if user == nil {
-		return token, nil, fmt.Errorf("no Firebase user %q", token.UID)
+		lambdaRequest.Log().Panic(ss.NewLogMsg(`no Firebase user`).AddDump(*token))
+		return // to prevent lint warning "go-golangci-lint"
 	}
 
 	if user.Disabled {
-		return token, user, fmt.Errorf("Firebase user %q is disabled.",
-			token.UID)
-	}
-	if !user.EmailVerified {
-		return token, user, fmt.Errorf("Firebase user %q email is not viridied.",
-			token.UID)
+		lambdaRequest.Log().Panic(
+			ss.NewLogMsg(`Firebase user is disabled`).AddDump(*token).AddDump(*user))
 	}
 
-	return token, user, nil
+	isAnonymous = token.Firebase.SignInProvider == "anonymous"
+
+	if !isAnonymous && !user.EmailVerified {
+		// Firebase marks an email as "verified" only if really knows that it is
+		// verified, so it can't say it about 3rd parties such as Facebook.
+		// To resolve, we need to send a confirmation email
+		// for each 3rd party service.
+		for len(user.ProviderUserInfo) != 1 {
+			if user.ProviderUserInfo[0].ProviderID != `facebook.com` {
+				lambdaRequest.Log().Panic(
+					ss.
+						NewLogMsg(`Firebase user email is not verified`).
+						AddDump(*token).
+						AddDump(*user))
+			}
+		}
+	}
+
+	return
 }
 
-func (lambda lambda) findUser(
-	firebaseUserID string,
-) (*FirebaseIndex, error) {
+func (lambda lambda) findUser(firebaseUserID string) *FirebaseIndex {
 	var result FirebaseIndex
-	isFound, err := lambda.
+	isFound := lambda.
 		db.
 		Index(&result).
 		Query("fId = :i", ddb.Values{":i": firebaseUserID}).
 		RequestOne()
-	if err != nil || !isFound {
-		return nil, err
+	if !isFound {
+		return nil
 	}
-	return &result, nil
+	return &result
 }
 
 func (lambda lambda) createUserUser(
 	source auth.UserRecord,
 	user *FirebaseIndex,
-) (bool, error) {
+	isAnonymous bool,
+	request rest.Request,
+) bool {
 
-	name := source.DisplayName
-	if name == "" {
-		name = petname.Generate(2, " ")
-	}
-
-	record, uniqueIndex := ssdb.NewFirebaseUser(source.UID, name)
+	record, uniqueIndex := ssdb.NewFirebaseUser(
+		source.UID,
+		lambda.policy.CheckNewUserName(source.DisplayName),
+		isAnonymous)
 	record.Email = source.Email
 	record.PhoneNumber = source.PhoneNumber
 	record.PhotoURL = source.PhotoURL
 
 	trans := ddb.NewWriteTrans()
-	trans.Create(record)      // 0
-	trans.Create(uniqueIndex) // 1
+	trans.Create(record)                                             // 0
+	trans.Create(uniqueIndex)                                        // 1
+	lambda.policy.CheckCreateUserTans(trans, record.ID, isAnonymous) // n
 
-	err := lambda.db.Write(trans)
-	if err == nil {
-		*user = NewFirebaseIndex(record)
-		return true, nil
-	}
-
-	if ddb.ParseErrorConditionalCheckFailed(err, 1, 1) != nil {
+	if lambda.db.WriteConditioned(trans, 1, 1) != nil {
 		// Firebase ID already registered.
-		return false, nil
+		return false
 	}
 
-	// Unexpected error.
-	return false, err
+	*user = NewFirebaseIndex(record)
+	return true
 }
 
 type updateRecord struct {
 	ssdb.UserRecord
-	Name        string `json:"name"`
-	Email       string `json:"email,omitempty"`
-	PhoneNumber string `json:"phone,omitempty"`
-	PhotoURL    string `json:"photoUrl,omitempty"`
+	OriginalName string `json:"origName"`
+	OwnName      string `json:"ownName,omitempty"`
+	Email        string `json:"email,omitempty"`
+	PhoneNumber  string `json:"phone,omitempty"`
+	PhotoURL     string `json:"photoUrl,omitempty"`
+}
+
+func (r updateRecord) GetName() string {
+	if r.OwnName != "" {
+		return r.OwnName
+	}
+	return r.OriginalName
 }
 
 func (r *updateRecord) Clear() { *r = updateRecord{} }
@@ -255,59 +315,52 @@ func (lambda lambda) updateUser(
 	userRecord auth.UserRecord,
 	request rest.Request,
 	user *FirebaseIndex,
+	isAnonymous *bool,
 ) {
-
-	sets := []string{}
-	removes := []string{}
-	values := ddb.Values{}
+	update := lambda.db.Update(ssdb.NewUserKey(user.ID))
 
 	if userRecord.DisplayName != "" {
-		sets = append(sets, "name = :n")
-		values[":n"] = userRecord.DisplayName
+		update.Set("origName = :n").Value(":n", userRecord.DisplayName)
 	}
 
 	if userRecord.PhotoURL != "" {
-		sets = append(sets, "photoUrl = :u")
-		values[":u"] = userRecord.PhotoURL
+		update.Set("photoUrl = :u").Value(":u", userRecord.PhotoURL)
 	} else {
-		removes = append(removes, "photoUrl")
+		update.Remove("photoUrl")
 	}
 
 	if userRecord.Email != "" {
-		sets = append(sets, "email = :e")
-		values[":e"] = userRecord.Email
+		update.Set("email = :e").Value(":e", userRecord.Email)
 	} else {
-		removes = append(removes, "email")
+		update.Remove("email")
 	}
 
 	if userRecord.PhoneNumber != "" {
-		sets = append(sets, "phone = :p")
-		values[":p"] = userRecord.PhoneNumber
+		update.Set("phone = :p").Value(":p", userRecord.PhoneNumber)
 	} else {
-		removes = append(removes, "phone")
+		update.Remove("phone")
 	}
 
-	var update string
-	if len(sets) > 0 {
-		update += "set " + strings.Join(sets, ",")
-	}
-	if len(removes) > 0 {
-		update += " remove " + strings.Join(removes, ",")
+	if isAnonymous != nil {
+		if ss.IsBoolSet(isAnonymous) {
+			update.
+				Set("anonymExpiration = :anonymExpiration").
+				Value(
+					":anonymExpiration",
+					ssdb.NewUserAnonymousRecordExpirationTime(ss.Now()))
+		} else {
+			update.Remove("anonymExpiration")
+		}
 	}
 
 	var record updateRecord
-	isFound, err := lambda.
-		db.
-		Update(ssdb.NewUserKey(user.ID), update).
-		Values(values).
-		RequestAndReturn(&record)
-	if err != nil || !isFound {
+	if isFound := update.RequestAndReturn(&record); !isFound {
 		request.Log().Error(
-			ss.NewLogMsg(`failed to update user`).Add(user.ID).AddErr(err))
+			ss.NewLogMsg(`failed to find update user to update`).Add(user.ID))
 		return
 	}
 
-	user.Name = record.Name
+	user.Name = record.GetName()
 	user.Email = record.Email
 	user.PhoneNumber = record.PhoneNumber
 	user.PhotoURL = record.PhotoURL

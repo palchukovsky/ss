@@ -35,55 +35,45 @@ type service struct {
 }
 
 func (service service) Start() {
-	awslambda.StartWithContext(service.context, service.handle)
+	awslambda.StartWithContext(
+		service.context,
+		func(request awsRequest) (awsResponse, error) {
+			return service.handle(request), nil
+		})
 }
 
-func (service service) handle(request awsRequest) (awsResponse, error) {
-	ss.S.StartLambda()
+func (service service) handle(request awsRequest) awsResponse {
+	ss.S.StartLambda(
+		func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) })
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
-	lambdaRequest := newRequest(request, service.Gateway, service.context)
+	log := ss.S.Log().NewSession(
+		ss.NewLogPrefix(
+			func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) }))
+
+	lambdaRequest := newRequest(request, service.Gateway, log, service.context)
 	defer func() {
-		lambdaRequest.Log().CheckPanic(
-			recover(),
-			func() *ss.LogMsg {
-				return ss.
-					NewLogMsg("panic at request handling").
-					AddRequest(lambdaRequest.AWSRequest)
-			})
+		lambdaRequest.Log().CheckPanic(recover(), "panic at request handling")
 	}()
 
-	if ss.S.Config().IsExtraLogEnabled() {
-		lambdaRequest.Log().Debug(
-			ss.NewLogMsg("lambda request").AddRequest(lambdaRequest.AWSRequest))
-	}
 	if err := service.validateRequest(request); err != nil {
 		lambdaRequest.Log().Warn(
-			ss.
-				NewLogMsg(`request validation failed`).
-				AddErr(err).
-				AddRequest(lambdaRequest.AWSRequest))
-		return awsResponse{StatusCode: http.StatusBadRequest}, nil
+			ss.NewLogMsg(`request validation failed`).AddErr(err))
+		return awsResponse{StatusCode: http.StatusBadRequest}
 	}
 
 	if err := service.lambda.Execute(&lambdaRequest); err != nil {
-		lambdaRequest.Log().Error(
-			ss.
-				NewLogMsg(`lambda execution error`).
-				AddErr(err).
-				AddRequest(lambdaRequest.AWSRequest))
-		return awsResponse{StatusCode: http.StatusInternalServerError}, err
+		lambdaRequest.Log().Panic(
+			ss.NewLogMsg(`lambda execution error`).AddErr(err))
 	}
 
 	result := awsResponse{
 		StatusCode: lambdaRequest.StatusCode,
-	}
-
-	if ss.S.Config().IsExtraLogEnabled() {
-		lambdaRequest.Log().Debug(
-			ss.NewLogMsg("lambda response").
-				AddVal("statusCode", result.StatusCode).
-				AddResponse(lambdaRequest.ResponseBody))
+		// Headers have to be in lowercase for better compression.
+		// Also, Cloudflare converts it in lower case.
+		Headers: map[string]string{
+			"content-type": "application/json; charset=utf-8",
+		},
 	}
 
 	if lambdaRequest.ResponseBody != nil {
@@ -98,17 +88,17 @@ func (service service) handle(request awsRequest) (awsResponse, error) {
 		result.Body = string(dump)
 	}
 
-	return result, nil
+	return result
 }
 
 func (service service) validateRequest(request awsRequest) error {
 	// The temporary solution to be sure that AWS already validated the request,
 	// see for details: https://buzzplace.atlassian.net/browse/Buzz-85
+	// Headers have to be in lowercase for better compression. Also, Cloudflare
+	// converts it in lower case.
 	contentType, has := request.Headers["content-type"]
 	if !has {
-		if contentType, has = request.Headers["Content-Type"]; !has {
-			return fmt.Errorf("content type is not set")
-		}
+		return fmt.Errorf("content type is not set")
 	}
 	if contentType != "application/json; charset=utf-8" {
 		return fmt.Errorf("invalid content type %q", contentType)

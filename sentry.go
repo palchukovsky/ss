@@ -4,7 +4,6 @@
 package ss
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -13,7 +12,7 @@ import (
 
 type sentry interface {
 	CaptureMessage(*LogMsg)
-	Recover(interface{}, *LogMsg)
+	Recover(*LogMsg)
 	Flush()
 }
 
@@ -27,17 +26,12 @@ func newSentry(
 		return sentryDummy{}, nil
 	}
 
-	environment := "production"
-	if !config.SS.Build.IsProd() {
-		environment = "development"
-	}
-
 	err := sentryclient.Init(
 		sentryclient.ClientOptions{
 			Dsn:              config.SS.Log.Sentry,
 			AttachStacktrace: true,
 			Release:          config.SS.Build.Version,
-			Environment:      environment,
+			Environment:      config.SS.Build.GetEnvironment(),
 			BeforeSend: func(
 				event *sentryclient.Event,
 				hint *sentryclient.EventHint,
@@ -62,40 +56,23 @@ func newSentry(
 
 type sentryDummy struct{}
 
-func (sentryDummy) CaptureMessage(*LogMsg)       {}
-func (sentryDummy) Recover(interface{}, *LogMsg) {}
-func (sentryDummy) Flush()                       {}
+func (sentryDummy) CaptureMessage(*LogMsg) {}
+func (sentryDummy) Recover(*LogMsg)        {}
+func (sentryDummy) Flush()                 {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type sentryConnect struct{}
 
 func (s sentryConnect) CaptureMessage(message *LogMsg) {
-	event := s.newEvent(message, false)
-
-	event.Message = message.GetMessage()
-
-	for _, err := range message.GetErrs() {
-		s.appendException(err.Get(), event)
-	}
-
-	if sentryclient.CaptureEvent(event) == nil {
+	if sentryclient.CaptureEvent(s.newEvent(message, false)) == nil {
 		log.Println("Failed to capture message by Sentry.")
 	}
 }
 
-func (s sentryConnect) Recover(panicValue interface{}, message *LogMsg) {
+func (s sentryConnect) Recover(message *LogMsg) {
 
 	event := s.newEvent(message, true)
-
-	switch err := panicValue.(type) {
-	case error:
-		s.appendException(err, event)
-	case string:
-		event.Message = fmt.Sprintf("%s: %s", message.GetMessage(), err)
-	default:
-		event.Message = fmt.Sprintf("%s: %#v", message.GetMessage(), err)
-	}
 
 	if sentryclient.CaptureEvent(event) == nil {
 		log.Println(`Failed to recover panic by Sentry.`)
@@ -108,13 +85,11 @@ func (sentryConnect) Flush() {
 	}
 }
 
-func (sentryConnect) newEvent(
+func (s sentryConnect) newEvent(
 	source *LogMsg,
 	isCrash bool,
 ) *sentryclient.Event {
 	result := sentryclient.NewEvent()
-
-	result.Message = source.GetMessage()
 
 	switch source.GetLevel() {
 	case logLevelDebug:
@@ -141,15 +116,22 @@ func (sentryConnect) newEvent(
 		delete(result.Extra, logMsgNodeUser)
 	}
 
+	result.Message = source.GetMessage()
+
+	for _, err := range source.GetErrs() {
+		result.Message += ": " + err.Get().Error()
+		s.appendException(err.Get(), result)
+		// Only fist error could be added to the Sentry as "exception",
+		// other will just recorded with Sentry record as "dumps".
+		break
+	}
+
 	return result
 }
 
-func (sentryConnect) appendException(
-	source error,
-	event *sentryclient.Event,
-) {
-	const maxErrorDepthFromDentryclient = 10
-	for i := 0; i < maxErrorDepthFromDentryclient && source != nil; i++ {
+func (sentryConnect) appendException(source error, event *sentryclient.Event) {
+	const maxErrorDepthFromSentryClient = 10
+	for len(event.Exception) <= maxErrorDepthFromSentryClient {
 		event.Exception = append(
 			event.Exception,
 			sentryclient.Exception{
@@ -164,6 +146,9 @@ func (sentryConnect) appendException(
 			source = previous.Cause()
 		default:
 			source = nil
+		}
+		if source == nil {
+			break
 		}
 	}
 }

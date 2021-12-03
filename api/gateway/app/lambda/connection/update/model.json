@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "m": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "i": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10
+    },
+    "d": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "fcm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "device",
+        "fcm"
+      ]
+    }
+  },
+  "required": [
+    "m",
+    "i",
+    "d"
+  ]
+}

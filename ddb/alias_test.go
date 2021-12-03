@@ -35,28 +35,30 @@ func Test_DDB_Alias_AliasReservedInString(test *testing.T) {
 	update := "set filed = 1, field2= 2, field3=3 remove filed4, field5"
 	trans := ddb.NewWriteTrans()
 	trans.Update(newTestAliasRecord(), update)
-	input, err := trans.Result()
-	assert.NoError(err)
+	input := trans.Result()
 	assert.Equal(1, len(input.TransactItems))
 	assert.NotNil(update, input.TransactItems[0].Update)
 	assert.Equal(update, *input.TransactItems[0].Update.UpdateExpression)
 	assert.Nil(input.TransactItems[0].Update.ExpressionAttributeNames)
 
-	update = "set user = 1, next 2 = 2 remove snapshot, field4"
+	update = "set user = 1, next 2 = 2 remove snapshot, field4, share.#l and attribute_not_exists(owner)"
 	trans = ddb.NewWriteTrans()
-	trans.Update(newTestAliasRecord(), update)
-	input, err = trans.Result()
-	assert.NoError(err)
+	trans.Update(newTestAliasRecord(), update).Alias("#l", "l")
+	input = trans.Result()
 	assert.Equal(1, len(input.TransactItems))
 	assert.NotNil(update, input.TransactItems[0].Update)
-	assert.Equal("set #user = 1, #next 2 = 2 remove #snapshot, field4",
+	assert.Equal(
+		"set #user = 1, #next 2 = 2 remove #snapshot, field4, #share.#l and attribute_not_exists(#owner)",
 		*input.TransactItems[0].Update.UpdateExpression)
 	assert.NotNil(input.TransactItems[0].Update.ExpressionAttributeNames)
 	assert.Equal(
 		map[string]*string{
+			"#l":        aws.String("l"),
 			"#user":     aws.String("user"),
 			"#next":     aws.String("next"),
 			"#snapshot": aws.String("snapshot"),
+			"#owner":    aws.String("owner"),
+			"#share":    aws.String("share"),
 		},
 		input.TransactItems[0].Update.ExpressionAttributeNames)
 }

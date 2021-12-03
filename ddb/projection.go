@@ -10,16 +10,26 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-func getRecordProjection(record RecordBuffer, aliases *map[string]*string,
+func getRecordProjection(
+	record RecordBuffer,
+	aliases *map[string]*string,
 ) *string {
 	var result string
 	getTypeProjection(reflect.ValueOf(record).Type(), &result, aliases)
+	if result == "" {
+		return nil
+	}
 	return aws.String(result)
 }
 
 func getTypeProjection(
-	source reflect.Type, projection *string, aliases *map[string]*string,
+	source reflect.Type,
+	projection *string,
+	aliases *map[string]*string,
 ) {
+	// It has to provide nested fields only, if root-struct is not from standard
+	// project types. See task https://buzzplace.atlassian.net/browse/BUZZ-200
+
 	if source.Kind() == reflect.Ptr {
 		source = source.Elem()
 	}

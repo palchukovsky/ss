@@ -4,8 +4,6 @@
 package connectioncreatelambda
 
 import (
-	"fmt"
-
 	"github.com/palchukovsky/ss"
 	apiapp "github.com/palchukovsky/ss/api/gateway/app"
 	"github.com/palchukovsky/ss/db"
@@ -28,13 +26,28 @@ func Run() { apiapp.Run() }
 type lambda struct{ db ddb.Client }
 
 func (lambda lambda) Execute(request ws.Request) error {
-	err := lambda.db.Create(
+
+	client := request.ReadClientInfo()
+
+	trans := ddb.NewWriteTrans()
+
+	trans.Create(
 		db.NewConnection(
 			request.GetConnectionID(),
-			request.GetUserID()))
-	if err != nil {
-		return fmt.Errorf(`failed to add connection: "%w"`, err)
+			request.GetUserID(),
+			client.Version))
+
+	if client.FCMToken != nil {
+		trans.CreateOrReplace(
+			db.NewDevice(
+				client.Device,
+				*client.FCMToken,
+				request.GetUserID(),
+				client.Key))
 	}
-	request.Log().Debug(ss.NewLogMsg("connected"))
+
+	lambda.db.Write(trans)
+
+	request.Log().Debug(ss.NewLogMsg("connected").Add(client))
 	return nil
 }

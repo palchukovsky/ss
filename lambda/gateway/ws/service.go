@@ -30,33 +30,27 @@ type service struct {
 	lambda Lambda
 }
 
-func (service service) Start() { awslambda.Start(service.handle) }
+func (service service) Start() {
+	awslambda.Start(
+		func(request awsResquest) (awsResponse, error) {
+			return service.handle(request), nil
+		})
+}
 
-func (service service) handle(request awsResquest) (awsResponse, error) {
-	ss.S.StartLambda()
+func (service service) handle(request awsResquest) awsResponse {
+	ss.S.StartLambda(
+		func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) })
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
-	lambdaRequest, err := newRequest(request, service.Gateway)
-	if err != nil {
-		return awsResponse{}, err
-	}
-	defer func() {
-		lambdaRequest.Log().CheckPanic(
-			recover(),
-			func() *ss.LogMsg {
-				return ss.
-					NewLogMsg("request handling panic").
-					AddRequest(lambdaRequest.AWSRequest)
-			})
-	}()
+	log := ss.S.Log().NewSession(
+		ss.NewLogPrefix(
+			func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) }))
+	defer func() { log.CheckPanic(recover(), "request handling panic") }()
 
-	if ss.S.Config().IsExtraLogEnabled() {
-		lambdaRequest.Log().Debug(
-			ss.NewLogMsg("lambda request").AddRequest(lambdaRequest.AWSRequest))
-	}
+	lambdaRequest := newRequest(request, service.Gateway, log)
 
 	var response interface{}
-	if err := service.lambda.Execute(&lambdaRequest); err != nil {
+	if err := service.lambda.Execute(lambdaRequest); err != nil {
 		lambdaRequest.Log().Error(
 			ss.
 				NewLogMsg(`lambda execution error`).
@@ -67,11 +61,6 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 		response = newSuccessResponseBody(lambdaRequest)
 	}
 
-	if ss.S.Config().IsExtraLogEnabled() {
-		lambdaRequest.Log().Debug(
-			ss.NewLogMsg("lambda response").AddResponse(response))
-	}
-
 	result := awsResponse{StatusCode: http.StatusOK}
 	if response != nil {
 		dump, err := json.Marshal(response)
@@ -80,16 +69,15 @@ func (service service) handle(request awsResquest) (awsResponse, error) {
 				ss.
 					NewLogMsg(`failed to marshal response`).
 					AddErr(err).
-					AddRequest(lambdaRequest.AWSRequest).
 					AddResponse(response))
 		}
 		result.Body = string(dump)
 	}
 
-	return result, nil
+	return result
 }
 
-func newSuccessResponseBody(request request) interface{} {
+func newSuccessResponseBody(request *request) interface{} {
 	id := request.ReadRemoteID()
 	if id == nil {
 		return nil
@@ -103,7 +91,7 @@ func newSuccessResponseBody(request request) interface{} {
 	}
 }
 
-func newErrorResponseBody(request request) interface{} {
+func newErrorResponseBody(request *request) interface{} {
 	id := request.ReadRemoteID()
 	if id == nil {
 		return nil

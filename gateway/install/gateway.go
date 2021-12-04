@@ -157,7 +157,11 @@ func (gateway gateway) Deploy(client Client) error {
 
 func (gateway *gateway) readCommads(sourcePath string) []command {
 
-	reader := newGatewayCommandsReader(sourcePath, newWSCommand)
+	reader := newGatewayCommandsReader(
+		sourcePath,
+		func(name, path string, log ss.LogSession) (command, error) {
+			return newWSCommand(name, newModelSchemaFromFileBuilder(path), log)
+		})
 	result, err := reader.Read(gateway.name, gateway.log)
 	if err != nil {
 		log.Panic(

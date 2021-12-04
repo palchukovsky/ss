@@ -5,10 +5,9 @@ package gatewayinstall
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strings"
 
 	"github.com/palchukovsky/ss"
+	connectionupdatelambda "github.com/palchukovsky/ss/api/gateway/app/lambda/connection/update/install"
 )
 
 type command interface {
@@ -39,21 +38,25 @@ func (command abstractCommand) Log() ss.LogStream { return command.log }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-func newWSCommand(name string, path string, log ss.LogSession) (command, error) {
+func newWSCommand(
+	name string,
+	schemaBuilder modelSchemaBuilder,
+	log ss.LogSession,
+) (command, error) {
 	command, err := newCommand(name, log)
 	if err != nil {
 		return nil, err
 	}
 	return wsCommand{
 			abstractCommand: command,
-			path:            path,
+			schemaBuilder:   schemaBuilder,
 		},
 		nil
 }
 
 type wsCommand struct {
 	abstractCommand
-	path string
+	schemaBuilder modelSchemaBuilder
 }
 
 func (command wsCommand) Create(client GatewayClient) error {
@@ -79,23 +82,16 @@ func (command wsCommand) createModel(
 	client GatewayClient,
 ) (GatewayModel, error) {
 
-	modelFile := command.path + "/model.json"
-	schema, err := ioutil.ReadFile(modelFile)
+	schema, err := command.schemaBuilder.Build()
 	if err != nil {
 		return "",
-			fmt.Errorf(`failed to read model schema from %q for command %q: "%w"`,
-				modelFile,
+			fmt.Errorf(
+				`failed to create model schema for command %q: "%w"`,
 				command.name,
 				err)
 	}
-	if len(schema) == 0 {
-		return "",
-			fmt.Errorf(`model %q schema from %q is empty`,
-				command.name,
-				modelFile)
-	}
 
-	model, err := client.CreateModel(command.name, string(schema))
+	model, err := client.CreateModel(command.name, schema)
 	if err != nil {
 		return "", fmt.Errorf(`failed to create model %q: "%w"`, command.name, err)
 	}
@@ -154,16 +150,10 @@ func (command wsDesconnectCommand) createRoute(client GatewayClient) error {
 func newWSConnectionUpdateCommand(
 	sourcePath string,
 	log ss.LogSession,
-) (
-	command,
-	error,
-) {
-	if !strings.HasSuffix(sourcePath, "/") {
-		sourcePath += "/"
-	}
+) (command, error) {
 	return newWSCommand(
 		"ConnectionUpdate",
-		sourcePath+"ss/api/gateway/app/lambda/connection/update",
+		newModelSchemaFromEmbedFS(connectionupdatelambda.ModelFS),
 		log)
 }
 

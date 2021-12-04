@@ -1,0 +1,21 @@
+linters-settings:
+  errcheck: # https://golangci-lint.run/usage/linters/#errcheck
+    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
+    # default is false: such cases aren't reported by default.
+    check-blank: true
+    # list of functions to exclude from checking, where each entry is a single function to exclude.
+    # see https://github.com/kisielk/errcheck#excluding-functions for details
+    #
+    # Has to be version 1.42.0 at least (see Makefile for var GOLANGCI_VER):
+    #   go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.0
+    # or
+    #   brew update && brew upgrade golangci-lint
+    exclude-functions:
+      - (*github.com/palchukovsky/ss.LogMsg).Add
+      - (*github.com/palchukovsky/ss.LogMsg).AddDump
+      - (*github.com/palchukovsky/ss.LogMsg).AddAttrs
+      - (*github.com/palchukovsky/ss.LogMsg).AddInfoPrefix
+      - (*github.com/palchukovsky/ss.LogMsg).AddCurrentStack
+      - (*github.com/palchukovsky/ss.LogMsg).AddVal
+      - (*github.com/palchukovsky/ss.LogMsg).AddPanic
+      - (*github.com/palchukovsky/ss.LogMsg).MergeWithLowLevelMsg

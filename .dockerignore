@@ -1,0 +1,7 @@
+.vscode
+mock
+bin
+coverage.txt
+.env*
+codeship*
+.config*

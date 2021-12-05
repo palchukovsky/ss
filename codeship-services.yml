@@ -1,0 +1,8 @@
+# Copyright 2021, the SS project owners. All rights reserved.
+# Please see the OWNERS and LICENSE files for details.
+
+Service:
+  add_docker: true
+  build:
+    image: service
+    dockerfile: build/builder/codeship.Dockerfile

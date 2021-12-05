@@ -1,0 +1,7 @@
+# Copyright 2021, the SS project owners. All rights reserved.
+# Please see the OWNERS and LICENSE files for details.
+
+- name: All
+  tag: ^(develop|main)
+  service: Service
+  command: make all

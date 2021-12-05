@@ -1,16 +1,23 @@
 # Copyright 2021, the SS project owners. All rights reserved.
 # Please see the OWNERS and LICENSE files for details.
 
-.PHONY: all \
-	install-mock install-mock-deps \
+.PHONY: all\
+	install-env \
 	lint \
 	mock \
 .DEFAULT_GOAL = all
 
+GO_VER = 1.17
+# golangci-lint will be installed inside container during building, local
+# copy has to be installed by:
+#   go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_VER}
+# or
+#   brew update && brew upgrade golangci-lint
+GOLANGCI_VER = 1.42.0
+
 ORGANIZATION = palchukovsky
 CODE_REPO = github.com/${ORGANIZATION}/ss
 
-GO_GET_CMD = go get -v
 
 define echo_start
 	@echo ================================================================================
@@ -35,26 +42,25 @@ help: ## Show this help.
 
 all:
 	@$(call echo_start)
-	$(call make_target,install-mock)
+	go mod download
+	$(call make_target,install-env)
 	$(call make_target,lint)
-	@$(call echo_success)
-
-
-install-mock: ## Install mock compilator and generate mock.
-	@$(call echo_start)
-	$(call make_target,install-mock-deps)
 	$(call make_target,mock)
-	@$(call echo_success)
-install-mock-deps: ## Install mock compilator components.
-	@$(call echo_start)
-	${GO_GET_CMD} github.com/stretchr/testify/assert
-	${GO_GET_CMD} github.com/golang/mock/gomock
-	${GO_GET_CMD} github.com/golang/mock/mockgen
+	go test -timeout 15s -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@$(call echo_success)
 
-lint: ## Run linter.
+
+install-env: ## Install required components to develop the project.
 	@$(call echo_start)
-	golangci-lint run -v ./...
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${GOLANGCI_VER}
+	echo golangci-lint --version
+	go install -v github.com/golang/mock/mockgen@latest
+	@$(call echo_success)
+
+
+lint: ## Run linter (https://golangci-lint.run/usage/quick-start/).
+	@$(call echo_start)
+	golangci-lint run --timeout 3m0s --verbose ./...
 	@$(call echo_success)
 
 

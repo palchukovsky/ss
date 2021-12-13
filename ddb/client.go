@@ -28,7 +28,8 @@ type Client interface {
 	DeleteIfExisting(key KeyRecord) Delete
 
 	Write(WriteTrans)
-	WriteConditioned(
+	WriteConditioned(trans WriteTrans) bool
+	WriteConditionedWithResult(
 		trans WriteTrans,
 		conditionFromIndex int,
 		conditionsNumber int,
@@ -82,7 +83,27 @@ func (client *client) Write(trans WriteTrans) {
 	}
 }
 
-func (client *client) WriteConditioned(
+func (client *client) WriteConditioned(trans WriteTrans) bool {
+
+	request, _ := client.db.TransactWriteItemsRequest(trans.Result())
+
+	err := request.Send()
+	if err == nil {
+		return true
+	}
+
+	if !isConditionalCheckError(err) {
+		ss.S.Log().Panic(
+			ss.
+				NewLogMsg("failed to write DDB transaction with conditions").
+				AddDump(trans).
+				AddErr(err))
+		// never reaches
+	}
+	return false
+}
+
+func (client *client) WriteConditionedWithResult(
 	trans WriteTrans,
 	conditionFromIndex int,
 	conditionsNumber int,

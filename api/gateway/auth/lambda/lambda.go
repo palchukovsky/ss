@@ -284,7 +284,7 @@ func (lambda lambda) createUserUser(
 	trans.Create(uniqueIndex)                                        // 1
 	lambda.policy.CheckCreateUserTans(trans, record.ID, isAnonymous) // n
 
-	if lambda.db.WriteConditioned(trans, 1, 1) != nil {
+	if lambda.db.WriteConditionedWithResult(trans, 1, 1) != nil {
 		// Firebase ID already registered.
 		return false
 	}

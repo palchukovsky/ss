@@ -119,7 +119,7 @@ func (trans *create) Request() {
 
 func (trans *create) requestConditioned() bool {
 	if err := trans.request(); err != nil {
-		if IsConditionalCheckError(err) {
+		if isConditionalCheckError(err) {
 			return false
 		}
 		ss.S.Log().Panic(

@@ -20,10 +20,10 @@ type Delete interface {
 	Values(Values) Delete
 
 	// Request executed request and return false if failed to find a record
-	// or of added conditions are failed.
+	// or if added conditions are failed.
 	Request() bool
 	// RequestAndReturn executed request and return false if failed to find
-	// a record or of added conditions are failed.
+	// a record or if added conditions are failed.
 	RequestAndReturn(RecordBuffer) bool
 }
 
@@ -111,7 +111,7 @@ func (trans *delete) request() *dynamodb.DeleteItemOutput {
 	request, result := trans.db.DeleteItemRequest(&trans.input)
 	if err := request.Send(); err != nil {
 		if trans.input.ConditionExpression != nil {
-			if IsConditionalCheckError(err) {
+			if isConditionalCheckError(err) {
 				// no error, but not found
 				return nil
 			}

@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-// IsConditionalCheckError retruns true if error is the error
+// isConditionalCheckError retruns true if error is the error
 // at conditions check.
-func IsConditionalCheckError(source error) bool {
+func isConditionalCheckError(source error) bool {
 	var awsErr awserr.Error
 	if !errors.As(source, &awsErr) {
 		return false
@@ -28,7 +28,7 @@ func IsConditionalCheckError(source error) bool {
 	return false
 }
 
-// ParseErrorConditionalCheckFailed parses error to check
+// parseErrorConditionalCheckFailed parses error to check
 // what condition was failed. Returns nil if it's not a error "condition failed"
 // or if failed conditions outside provided range.
 func parseErrorConditionalCheckFailed(

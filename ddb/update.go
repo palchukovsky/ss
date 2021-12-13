@@ -29,10 +29,10 @@ type Update interface {
 	Condition(string) Update
 
 	// Request executed request and return false if failed to find a record
-	// or of added conditions are failed.
+	// or if added conditions are failed.
 	Request() bool
 	// RequestAndReturn executed request and return false if failed to find
-	// a record or of added conditions are failed.
+	// a record ir of added conditions are failed.
 	RequestAndReturn(RecordBuffer) bool
 }
 
@@ -159,7 +159,7 @@ func (update *update) request() *dynamodb.UpdateItemOutput {
 	}
 	request, result := update.db.UpdateItemRequest(&update.Input)
 	if err := request.Send(); err != nil {
-		if IsConditionalCheckError(err) {
+		if isConditionalCheckError(err) {
 			// no error, but not found
 			return nil
 		}

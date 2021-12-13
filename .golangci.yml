@@ -7,7 +7,7 @@ linters-settings:
     # see https://github.com/kisielk/errcheck#excluding-functions for details
     #
     # Has to be version 1.42.0 at least (see Makefile for var GOLANGCI_VER):
-    #   go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.0
+    #   go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.0
     # or
     #   brew update && brew upgrade golangci-lint
     exclude-functions:

@@ -13,7 +13,7 @@ GO_VER = 1.17
 #   go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_VER}
 # or
 #   brew update && brew upgrade golangci-lint
-GOLANGCI_VER = 1.42.0
+GOLANGCI_VER = 1.43.0
 
 ORGANIZATION = palchukovsky
 CODE_REPO = github.com/${ORGANIZATION}/ss

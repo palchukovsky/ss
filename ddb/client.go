@@ -27,13 +27,7 @@ type Client interface {
 	Delete(key KeyRecord) Delete
 	DeleteIfExisting(key KeyRecord) Delete
 
-	Write(WriteTrans)
-	WriteConditioned(trans WriteTrans) bool
-	WriteConditionedWithResult(
-		trans WriteTrans,
-		conditionFromIndex int,
-		conditionsNumber int,
-	) []bool
+	WriteWithResult(WriteTrans) TransResult
 }
 
 // GetClientInstance returns reference to client singleton.
@@ -72,64 +66,17 @@ func (client *client) Get(key KeyRecordBuffer) Get {
 	return newGet(client.db, key)
 }
 
-func (client *client) Write(trans WriteTrans) {
+func (client *client) WriteWithResult(trans WriteTrans) TransResult {
 	request, _ := client.db.TransactWriteItemsRequest(trans.Result())
-	if err := request.Send(); err != nil {
+	result, err := newTransResult(request.Send())
+	if err != nil {
 		ss.S.Log().Panic(
 			ss.
 				NewLogMsg("failed to write DDB transaction").
 				AddDump(trans).
 				AddErr(err))
 	}
-}
-
-func (client *client) WriteConditioned(trans WriteTrans) bool {
-
-	request, _ := client.db.TransactWriteItemsRequest(trans.Result())
-
-	err := request.Send()
-	if err == nil {
-		return true
-	}
-
-	if !isConditionalCheckError(err) {
-		ss.S.Log().Panic(
-			ss.
-				NewLogMsg("failed to write DDB transaction with conditions").
-				AddDump(trans).
-				AddErr(err))
-		// never reaches
-	}
-	return false
-}
-
-func (client *client) WriteConditionedWithResult(
-	trans WriteTrans,
-	conditionFromIndex int,
-	conditionsNumber int,
-) []bool {
-
-	request, _ := client.db.TransactWriteItemsRequest(trans.Result())
-
-	err := request.Send()
-	if err == nil {
-		return nil
-	}
-
-	failedConditions := parseErrorConditionalCheckFailed(
-		err,
-		conditionFromIndex,
-		conditionsNumber)
-	if failedConditions != nil {
-		return failedConditions
-	}
-
-	ss.S.Log().Panic(
-		ss.
-			NewLogMsg("failed to write DDB transaction with conditions").
-			AddDump(trans).
-			AddErr(err))
-	return nil // never reaches
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////

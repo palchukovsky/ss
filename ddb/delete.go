@@ -19,12 +19,8 @@ type Delete interface {
 	Condition(string) Delete
 	Values(Values) Delete
 
-	// Request executed request and return false if failed to find a record
-	// or if added conditions are failed.
-	Request() bool
-	// RequestAndReturn executed request and return false if failed to find
-	// a record or if added conditions are failed.
-	RequestAndReturn(RecordBuffer) bool
+	RequestWithResult() Result
+	RequestAndReturn(RecordBuffer) Result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -84,17 +80,18 @@ func (trans *delete) Condition(condition string) Delete {
 	return trans
 }
 
-func (trans *delete) Request() bool {
-	return trans.request() != nil
+func (trans *delete) RequestWithResult() Result {
+	result, _ := trans.request()
+	return result
 }
 
-func (trans *delete) RequestAndReturn(result RecordBuffer) bool {
+func (trans *delete) RequestAndReturn(resultRecord RecordBuffer) Result {
 	trans.input.ReturnValues = aws.String(dynamodb.ReturnValueAllOld)
-	output := trans.request()
-	if output == nil {
-		return false
+	result, output := trans.request()
+	if !result.IsSuccess() {
+		return result
 	}
-	err := dynamodbattribute.UnmarshalMap(output.Attributes, result)
+	err := dynamodbattribute.UnmarshalMap(output.Attributes, resultRecord)
 	if err != nil {
 		ss.S.Log().Panic(
 			ss.
@@ -104,25 +101,20 @@ func (trans *delete) RequestAndReturn(result RecordBuffer) bool {
 				AddErr(err).
 				AddDump(result))
 	}
-	return true
+	return result
 }
 
-func (trans *delete) request() *dynamodb.DeleteItemOutput {
-	request, result := trans.db.DeleteItemRequest(&trans.input)
-	if err := request.Send(); err != nil {
-		if trans.input.ConditionExpression != nil {
-			if isConditionalCheckError(err) {
-				// no error, but not found
-				return nil
-			}
-		}
+func (trans *delete) request() (Result, *dynamodb.DeleteItemOutput) {
+	request, output := trans.db.DeleteItemRequest(&trans.input)
+	result, err := newResult(request.Send())
+	if err != nil {
 		ss.S.Log().Panic(
 			ss.
 				NewLogMsg(`failed to delete item from table %q`, trans.getTable()).
 				AddErr(err).
 				AddDump(trans.input))
 	}
-	return result
+	return result, output
 }
 
 func (delete *delete) getTable() string { return *delete.input.TableName }

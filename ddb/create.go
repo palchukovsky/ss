@@ -18,14 +18,13 @@ type Create interface {
 	Condition(string) Create
 	Values(Values) Create
 
-	Request()
-	RequestConditioned() bool
+	RequestWithResult() Result
 }
 
 type CreateIfNotExists interface {
 	ss.NoCopy
 
-	Request() bool
+	Request() Result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -102,37 +101,17 @@ func (trans *create) Values(values Values) Create {
 	return trans
 }
 
-func (trans *create) request() error {
+func (trans *create) RequestWithResult() Result {
 	request, _ := trans.db.PutItemRequest(&trans.input)
-	return request.Send()
-}
-
-func (trans *create) Request() {
-	if err := trans.request(); err != nil {
+	result, err := newResult(request.Send())
+	if err != nil {
 		ss.S.Log().Panic(
 			ss.
 				NewLogMsg(`failed to put item into table %q`, *trans.input.TableName).
 				AddDump(trans.input).
 				AddErr(err))
 	}
-}
-
-func (trans *create) requestConditioned() bool {
-	if err := trans.request(); err != nil {
-		if isConditionalCheckError(err) {
-			return false
-		}
-		ss.S.Log().Panic(
-			ss.
-				NewLogMsg(`failed to put item into table %q`, *trans.input.TableName).
-				AddDump(trans.input).
-				AddErr(err))
-	}
-	return true
-}
-
-func (trans *create) RequestConditioned() bool {
-	return trans.requestConditioned()
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -146,8 +125,8 @@ func newCreateIfNotExists(
 	return &createIfNotExists{create: *newCreate(record, db)}
 }
 
-func (trans *createIfNotExists) Request() bool {
-	return trans.requestConditioned()
+func (trans *createIfNotExists) Request() Result {
+	return trans.RequestWithResult()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

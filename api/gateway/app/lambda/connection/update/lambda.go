@@ -47,7 +47,7 @@ func (lambda lambda) Execute(lambdaRequest ws.Request) error {
 				request.FCMToken,
 				lambdaRequest.GetUserID(),
 				lambdaRequest.ReadClientKey())).
-		Request()
+		RequestWithResult()
 	lambdaRequest.Log().Debug(
 		ss.NewLogMsg("updated").
 			Add(request.Device).

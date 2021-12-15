@@ -37,7 +37,11 @@ func NewWriteTrans() WriteTrans {
 
 // WriteTransExpression describes the part of WriteTrans
 // witch builds typed expression.
-type WriteTransExpression interface{ ss.NoCopy }
+type WriteTransExpression interface {
+	ss.NoCopy
+
+	GetIndex() int
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -63,6 +67,7 @@ func (trans *writeTrans) MarshalLogMsg(destination map[string]interface{}) {
 type writeTransExpression struct {
 	ss.NoCopyImpl
 	trans *writeTrans
+	index int
 }
 
 func newWriteTransExpression(
@@ -70,8 +75,13 @@ func newWriteTransExpression(
 	result dynamodb.TransactWriteItem,
 ) writeTransExpression {
 	trans.result = append(trans.result, &result)
-	return writeTransExpression{trans: trans}
+	return writeTransExpression{
+		trans: trans,
+		index: len(trans.result) - 1,
+	}
 }
+
+func (trans *writeTransExpression) GetIndex() int { return trans.index }
 
 func (trans *writeTransExpression) marshalValues(
 	source Values,

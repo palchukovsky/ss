@@ -195,12 +195,13 @@ func (push *push) newMessage(key db.DeviceCryptoKey) map[string]string {
 }
 
 func (push *push) deleteExpiredToken(device lib.DeviceUserIndex) {
-	isFound := push.
+	isSuccess := push.
 		service.
 		db.
 		DeleteIfExisting(db.NewDeviceKey(device.FCMToken)).
-		Request()
-	if !isFound {
+		RequestWithResult().
+		IsSuccess()
+	if !isSuccess {
 		push.log.Debug(ss.NewLogMsg("expired token already changed"))
 		return
 	}

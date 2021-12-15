@@ -28,12 +28,8 @@ type Update interface {
 
 	Condition(string) Update
 
-	// Request executed request and return false if failed to find a record
-	// or if added conditions are failed.
-	Request() bool
-	// RequestAndReturn executed request and return false if failed to find
-	// a record ir of added conditions are failed.
-	RequestAndReturn(RecordBuffer) bool
+	RequestWithResult() Result
+	RequestAndReturn(RecordBuffer) Result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,18 +114,18 @@ func (update *update) Condition(condition string) Update {
 	return update
 }
 
-func (update *update) Request() bool {
-	output := update.request()
-	return output != nil
+func (update *update) RequestWithResult() Result {
+	result, _ := update.request()
+	return result
 }
 
-func (update *update) RequestAndReturn(result RecordBuffer) bool {
+func (update *update) RequestAndReturn(resultRecord RecordBuffer) Result {
 	update.Input.ReturnValues = aws.String(dynamodb.ReturnValueAllNew)
-	output := update.request()
-	if output == nil {
-		return false
+	result, output := update.request()
+	if !result.IsSuccess() {
+		return result
 	}
-	err := dynamodbattribute.UnmarshalMap(output.Attributes, result)
+	err := dynamodbattribute.UnmarshalMap(output.Attributes, resultRecord)
 	if err != nil {
 		ss.S.Log().Panic(
 			ss.
@@ -138,10 +134,10 @@ func (update *update) RequestAndReturn(result RecordBuffer) bool {
 					update.getTable()).
 				AddErr(err))
 	}
-	return true
+	return result
 }
 
-func (update *update) request() *dynamodb.UpdateItemOutput {
+func (update *update) request() (Result, *dynamodb.UpdateItemOutput) {
 	{
 		expression := make([]string, 0, 3)
 		if update.Expr != "" {
@@ -157,19 +153,14 @@ func (update *update) request() *dynamodb.UpdateItemOutput {
 			strings.Join(expression, " "),
 			&update.Input.ExpressionAttributeNames)
 	}
-	request, result := update.db.UpdateItemRequest(&update.Input)
-	if err := request.Send(); err != nil {
-		if isConditionalCheckError(err) {
-			// no error, but not found
-			return nil
-		}
-		if err != nil {
-			ss.S.Log().Panic(
-				ss.NewLogMsg("failed to update item in table %q", update.getTable()).
-					AddErr(err))
-		}
+	request, output := update.db.UpdateItemRequest(&update.Input)
+	result, err := newResult(request.Send())
+	if err != nil {
+		ss.S.Log().Panic(
+			ss.NewLogMsg("failed to update item in table %q", update.getTable()).
+				AddErr(err))
 	}
-	return result
+	return result, output
 }
 
 func (update *update) SetKey(source interface{}) {

@@ -280,11 +280,15 @@ func (lambda lambda) createUserUser(
 	record.PhotoURL = source.PhotoURL
 
 	trans := ddb.NewWriteTrans()
-	trans.Create(record)                                             // 0
-	trans.Create(uniqueIndex)                                        // 1
-	lambda.policy.CheckCreateUserTans(trans, record.ID, isAnonymous) // n
+	trans.Create(record)
+	uniqueRecordTrans := trans.Create(uniqueIndex)
+	lambda.policy.CheckCreateUserTans(trans, record.ID, isAnonymous)
 
-	if lambda.db.WriteConditionedWithResult(trans, 1, 1) != nil {
+	if result := lambda.db.WriteWithResult(trans); !result.IsSuccess() {
+		if !result.ParseConditions().IsFailedOnly(uniqueRecordTrans) {
+			request.Log().Panic(
+				ss.NewLogMsg("new user conditional check failed").Add(result))
+		}
 		// Firebase ID already registered.
 		return false
 	}
@@ -354,7 +358,7 @@ func (lambda lambda) updateUser(
 	}
 
 	var record updateRecord
-	if isFound := update.RequestAndReturn(&record); !isFound {
+	if !update.RequestAndReturn(&record).IsSuccess() {
 		request.Log().Error(
 			ss.NewLogMsg(`failed to find update user to update`).Add(user.ID))
 		return

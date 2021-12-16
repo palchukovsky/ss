@@ -68,7 +68,7 @@ func (client *client) Get(key KeyRecordBuffer) Get {
 
 func (client *client) WriteWithResult(trans WriteTrans) TransResult {
 	request, _ := client.db.TransactWriteItemsRequest(trans.Result())
-	result, err := newTransResult(request.Send())
+	result, err := newTransResult(request.Send(), trans)
 	if err != nil {
 		ss.S.Log().Panic(
 			ss.

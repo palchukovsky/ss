@@ -14,54 +14,57 @@ import (
 
 type TransResult interface {
 	IsSuccess() bool
-	ParseConditions() ConditionalCheckResult
+	ParseConditions(allowedToFail ...WriteTransExpression) ConditionalCheckResult
 
 	MarshalLogMsg(destination map[string]interface{})
 }
 
 type ConditionalCheckResult interface {
 	IsPassed(conditions ...WriteTransExpression) bool
-	IsFailedOnly(allowedToFail ...WriteTransExpression) bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // newTransResult creates a result object if possible.
 // In case of an unexpected error, returns clarified error.
-func newTransResult(source error) (TransResult, error) {
-	if source == nil {
-		return newSuccessfulTransResult(), nil
+func newTransResult(err error, trans WriteTrans) (TransResult, error) {
+	if err == nil {
+		return newSuccessfulTransResult(trans), nil
 	}
 
 	{
 		var awsErr awserr.Error
-		if errors.As(source, &awsErr) {
+		if errors.As(err, &awsErr) {
 			switch awsErr.Code() {
 			case dynamodb.ErrCodeConditionalCheckFailedException,
 				dynamodb.ErrCodeTransactionCanceledException:
 				{
-					return newConditionalTransCheckFail(awsErr), nil
+					return newConditionalTransCheckFail(awsErr, trans), nil
 				}
 			}
 		}
 	}
 
-	return nil, source
+	return nil, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type successfulTransResult struct{}
+type successfulTransResult struct{ trans WriteTrans }
 
-func newSuccessfulTransResult() successfulTransResult {
-	return successfulTransResult{}
+func newSuccessfulTransResult(trans WriteTrans) successfulTransResult {
+	return successfulTransResult{trans: trans}
 }
 func (successfulTransResult) IsSuccess() bool { return true }
-func (successfulTransResult) ParseConditions() ConditionalCheckResult {
+func (successfulTransResult) ParseConditions(
+	...WriteTransExpression,
+) ConditionalCheckResult {
 	return successfullyTestedConditions{}
 }
-func (successfulTransResult) MarshalLogMsg(destination map[string]interface{}) {
-	ss.MarshalLogMsgAttrDump(nil, destination)
+func (success successfulTransResult) MarshalLogMsg(
+	destination map[string]interface{},
+) {
+	ss.MarshalLogMsgAttrDump(success.trans, destination)
 }
 
 type successfullyTestedConditions struct{}
@@ -75,26 +78,32 @@ func (successfullyTestedConditions) IsFailedOnly(...WriteTransExpression) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type conditionalTransCheckFail struct{ source awserr.Error }
+type conditionalTransCheckFail struct {
+	err   awserr.Error
+	trans WriteTrans
+}
 
 func newConditionalTransCheckFail(
-	source awserr.Error,
+	err awserr.Error,
+	trans WriteTrans,
 ) conditionalTransCheckFail {
-	return conditionalTransCheckFail{source: source}
+	return conditionalTransCheckFail{err: err}
 }
 
 func (conditionalTransCheckFail) IsSuccess() bool { return false }
 
-func (fail conditionalTransCheckFail) ParseConditions() ConditionalCheckResult {
+func (fail conditionalTransCheckFail) ParseConditions(
+	allowedToFail ...WriteTransExpression,
+) ConditionalCheckResult {
 
-	message := fail.source.Message()
+	message := fail.err.Message()
 	begin := strings.LastIndex(message, "[")
 	end := strings.LastIndex(message, "]")
 	if begin >= end {
 		ss.S.Log().Panic(
 			ss.
 				NewLogMsg("failed to parse conditional check fail message").
-				AddErr(fail.source).
+				Add(fail).
 				AddDump(message))
 	}
 
@@ -110,6 +119,7 @@ func (fail conditionalTransCheckFail) ParseConditions() ConditionalCheckResult {
 		case "None":
 			result.flags[i] = true
 		case "ConditionalCheckFailed":
+			fail.checkAllowedToFail(i, allowedToFail...)
 			result.flags[i] = false
 		default:
 			ss.S.Log().Panic(
@@ -117,16 +127,35 @@ func (fail conditionalTransCheckFail) ParseConditions() ConditionalCheckResult {
 					NewLogMsg(
 						"unknown conditional check fail message status %q",
 						condition).
-					AddErr(fail.source).
+					Add(fail).
 					AddDump(message))
 		}
+
 	}
 
 	return result
 }
 
-func (fail conditionalTransCheckFail) MarshalLogMsg(destination map[string]interface{}) {
-	ss.MarshalLogMsgAttrDump(fail.source, destination)
+func (fail conditionalTransCheckFail) checkAllowedToFail(
+	failedConditionIndex int,
+	allowedToFail ...WriteTransExpression,
+) {
+	if len(allowedToFail) == 0 {
+		return
+	}
+	for _, allowedToFail := range allowedToFail {
+		if allowedToFail.GetIndex() == failedConditionIndex {
+			return
+		}
+	}
+	ss.S.Log().Panic(ss.NewLogMsg("unexpected conditions failed").Add(fail))
+}
+
+func (fail conditionalTransCheckFail) MarshalLogMsg(
+	destination map[string]interface{},
+) {
+	ss.MarshalLogMsgAttrDump(fail.err, destination)
+	ss.MarshalLogMsgAttrDump(fail.trans, destination)
 }
 
 type conditionalCheckFails struct {
@@ -139,27 +168,6 @@ func (checks conditionalCheckFails) IsPassed(
 ) bool {
 	for _, condition := range conditions {
 		if !checks.flags[condition.GetIndex()] {
-			return false
-		}
-	}
-	return true
-}
-
-func (check conditionalCheckFails) IsFailedOnly(
-	allowedToFail ...WriteTransExpression,
-) bool {
-	for i, flag := range check.flags {
-		if flag {
-			continue
-		}
-		failIsAllowed := false
-		for _, condition := range allowedToFail {
-			if condition.GetIndex() == i {
-				failIsAllowed = true
-				break
-			}
-		}
-		if failIsAllowed {
 			return false
 		}
 	}

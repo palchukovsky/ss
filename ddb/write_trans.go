@@ -29,12 +29,15 @@ type WriteTrans interface {
 	MarshalLogMsg(destination map[string]interface{})
 
 	GetResult() *dynamodb.TransactWriteItemsInput
-	getAllowedToFailConditionalChecks() map[int]struct{}
+	getAllowedToFailConditionalChecks() []bool
 }
 
 // NewWriteTrans creates new write transaction builder.
-func NewWriteTrans() WriteTrans {
-	return &writeTrans{result: []*dynamodb.TransactWriteItem{}}
+func NewWriteTrans(isConditionalCheckFail bool) WriteTrans {
+	return &writeTrans{
+		result:                 []*dynamodb.TransactWriteItem{},
+		isConditionalCheckFail: isConditionalCheckFail,
+	}
 }
 
 // WriteTransExpression describes the part of WriteTrans
@@ -46,15 +49,17 @@ type WriteTransExpression interface{ CheckedTransExpression }
 type writeTrans struct {
 	ss.NoCopyImpl
 
-	result                         []*dynamodb.TransactWriteItem
-	allowedToFailConditionalChecks map[int]struct{}
+	result []*dynamodb.TransactWriteItem
+
+	isConditionalCheckFail         bool
+	allowedToFailConditionalChecks []bool
 }
 
 func (trans *writeTrans) GetResult() *dynamodb.TransactWriteItemsInput {
 	return &dynamodb.TransactWriteItemsInput{TransactItems: trans.result}
 }
 
-func (trans *writeTrans) getAllowedToFailConditionalChecks() map[int]struct{} {
+func (trans *writeTrans) getAllowedToFailConditionalChecks() []bool {
 	return trans.allowedToFailConditionalChecks
 }
 
@@ -77,6 +82,9 @@ func newWriteTransExpression(
 	result dynamodb.TransactWriteItem,
 ) writeTransExpression {
 	trans.result = append(trans.result, &result)
+	trans.allowedToFailConditionalChecks = append(
+		trans.allowedToFailConditionalChecks,
+		trans.isConditionalCheckFail)
 	return writeTransExpression{
 		checkedTransExpression: newCheckedTransExpression(
 			len(trans.result)-1,

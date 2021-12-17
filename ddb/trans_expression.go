@@ -27,12 +27,12 @@ type checkedTransExpression struct {
 	ss.NoCopyImpl
 
 	index                          int
-	allowedToFailConditionalChecks map[int]struct{}
+	allowedToFailConditionalChecks []bool
 }
 
 func newCheckedTransExpression(
 	expressionIndex int,
-	allowedToFailConditionalChecks map[int]struct{},
+	allowedToFailConditionalChecks []bool,
 ) checkedTransExpression {
 	return checkedTransExpression{
 		index:                          expressionIndex,
@@ -41,7 +41,7 @@ func newCheckedTransExpression(
 }
 
 func (expr *checkedTransExpression) AllowConditionalCheckFail() ConditionalTransCheckFailPermission {
-	expr.allowedToFailConditionalChecks[expr.index] = struct{}{}
+	expr.allowedToFailConditionalChecks[expr.index] = true
 	return ConditionalTransCheckFailPermission(expr.index)
 }
 

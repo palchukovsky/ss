@@ -110,7 +110,7 @@ func (fail conditionalTransCheckFail) ParseConditions() ConditionalCheckResult {
 }
 
 func (fail *conditionalTransCheckFail) parseConditions(
-	allowedToFailConditionalChecks map[int]struct{},
+	allowedToFailConditionalChecks []bool,
 ) bool {
 
 	message := fail.err.Message()
@@ -135,7 +135,7 @@ func (fail *conditionalTransCheckFail) parseConditions(
 		case "ConditionalCheckFailed":
 			if allowedToFailConditionalChecks != nil {
 				// nil-check is required as if nil - means "do not check"
-				if _, has := allowedToFailConditionalChecks[i]; !has {
+				if !allowedToFailConditionalChecks[i] {
 					return false
 				}
 			}

@@ -29,7 +29,7 @@ func (lambda lambda) Execute(request ws.Request) error {
 
 	client := request.ReadClientInfo()
 
-	trans := ddb.NewWriteTrans()
+	trans := ddb.NewWriteTrans(false)
 
 	trans.CreateIfNotExists(
 		db.NewConnection(

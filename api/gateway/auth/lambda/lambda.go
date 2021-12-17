@@ -279,7 +279,7 @@ func (lambda lambda) createUserUser(
 	record.PhoneNumber = source.PhoneNumber
 	record.PhotoURL = source.PhotoURL
 
-	trans := ddb.NewWriteTrans()
+	trans := ddb.NewWriteTrans(false)
 	trans.CreateIfNotExists(record)
 	trans.CreateIfNotExists(uniqueIndex).AllowConditionalCheckFail()
 	lambda.policy.CheckCreateUserTans(trans, record.ID, isAnonymous)

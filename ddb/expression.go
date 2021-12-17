@@ -10,12 +10,8 @@ import "github.com/palchukovsky/ss"
 type CheckedExpression interface {
 	ss.NoCopy
 
-	AllowConditionalCheckFail() ConditionalCheckFailPermission
+	AllowConditionalCheckFail()
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-type ConditionalCheckFailPermission struct{}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -27,9 +23,8 @@ type checkedExpression struct {
 
 func newCheckedExpression() checkedExpression { return checkedExpression{} }
 
-func (expr *checkedExpression) AllowConditionalCheckFail() ConditionalCheckFailPermission {
+func (expr *checkedExpression) AllowConditionalCheckFail() {
 	expr.isConditionalCheckFailAllowed = true
-	return ConditionalCheckFailPermission{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

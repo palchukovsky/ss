@@ -280,12 +280,11 @@ func (lambda lambda) createUserUser(
 	record.PhotoURL = source.PhotoURL
 
 	trans := ddb.NewWriteTrans()
-	trans.Create(record)
-	uniqueRecordTrans := trans.Create(uniqueIndex)
+	trans.CreateIfNotExists(record)
+	trans.CreateIfNotExists(uniqueIndex).AllowConditionalCheckFail()
 	lambda.policy.CheckCreateUserTans(trans, record.ID, isAnonymous)
 
-	if result := lambda.db.WriteWithResult(trans); !result.IsSuccess() {
-		result.ParseConditions(uniqueRecordTrans)
+	if !lambda.db.WriteWithResult(trans).IsSuccess() {
 		// Firebase ID already registered.
 		return false
 	}

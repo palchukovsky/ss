@@ -23,7 +23,7 @@ type CreateTrans interface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func (trans *writeTrans) Create(record DataRecord) CreateTrans {
+func (trans *writeTrans) CreateIfNotExists(record DataRecord) CreateTrans {
 	result := trans.newCreateTrans(record)
 	result.Condition(
 		fmt.Sprintf("attribute_not_exists(%s)", record.GetKeyPartitionField()))

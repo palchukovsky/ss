@@ -18,14 +18,14 @@ func (result Result) IsSuccess() bool { return bool(result) }
 
 // newResult creates a result object if possible.
 // In case of an unexpected error, returns clarified error.
-func newResult(source error) (Result, error) {
-	if source == nil {
+func newResult(err error, isConditionalCheckFailAllowed bool) (Result, error) {
+	if err == nil {
 		return true, nil
 	}
 
-	{
+	if isConditionalCheckFailAllowed {
 		var awsErr awserr.Error
-		if errors.As(source, &awsErr) {
+		if errors.As(err, &awsErr) {
 			switch awsErr.Code() {
 			case dynamodb.ErrCodeConditionalCheckFailedException:
 				return false, nil
@@ -33,7 +33,7 @@ func newResult(source error) (Result, error) {
 		}
 	}
 
-	return false, source
+	return false, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

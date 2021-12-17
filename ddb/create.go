@@ -13,7 +13,7 @@ import (
 )
 
 type Create interface {
-	ss.NoCopy
+	CheckedExpression
 
 	Condition(string) Create
 	Values(Values) Create
@@ -22,19 +22,12 @@ type Create interface {
 }
 
 type CreateIfNotExists interface {
-	ss.NoCopy
+	CheckedExpression
 
-	Request() Result
+	RequestWithResult() Result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-func (client *client) Create(record DataRecord) Create {
-	result := newCreate(record, client.db)
-	result.Condition(
-		fmt.Sprintf("attribute_not_exists(%s)", record.GetKeyPartitionField()))
-	return result
-}
 
 func (client *client) CreateIfNotExists(record DataRecord) CreateIfNotExists {
 	result := newCreateIfNotExists(record, client.db)
@@ -51,6 +44,7 @@ func (client *client) CreateOrReplace(record DataRecord) Create {
 
 type create struct {
 	ss.NoCopyImpl
+	checkedExpression
 
 	db    *dynamodb.DynamoDB
 	input dynamodb.PutItemInput
@@ -58,7 +52,8 @@ type create struct {
 
 func newCreate(record DataRecord, db *dynamodb.DynamoDB) *create {
 	result := create{
-		db: db,
+		checkedExpression: newCheckedExpression(),
+		db:                db,
 		input: dynamodb.PutItemInput{
 			TableName: aws.String(ss.S.NewBuildEntityName(record.GetTable())),
 		},
@@ -103,7 +98,7 @@ func (trans *create) Values(values Values) Create {
 
 func (trans *create) RequestWithResult() Result {
 	request, _ := trans.db.PutItemRequest(&trans.input)
-	result, err := newResult(request.Send())
+	result, err := newResult(request.Send(), trans.isConditionalCheckFailAllowed)
 	if err != nil {
 		ss.S.Log().Panic(
 			ss.
@@ -125,8 +120,8 @@ func newCreateIfNotExists(
 	return &createIfNotExists{create: *newCreate(record, db)}
 }
 
-func (trans *createIfNotExists) Request() Result {
-	return trans.RequestWithResult()
+func (trans *createIfNotExists) RequestWithResult() Result {
+	return trans.create.RequestWithResult()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

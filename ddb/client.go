@@ -20,7 +20,6 @@ type Client interface {
 	FindMany() FindMany
 	Query(record RecordBuffer, keyCondition string, values Values) Query
 
-	Create(data DataRecord) Create
 	CreateIfNotExists(data DataRecord) CreateIfNotExists
 	CreateOrReplace(data DataRecord) Create
 	Update(key KeyRecord) Update
@@ -67,7 +66,7 @@ func (client *client) Get(key KeyRecordBuffer) Get {
 }
 
 func (client *client) WriteWithResult(trans WriteTrans) TransResult {
-	request, _ := client.db.TransactWriteItemsRequest(trans.Result())
+	request, _ := client.db.TransactWriteItemsRequest(trans.GetResult())
 	result, err := newTransResult(request.Send(), trans)
 	if err != nil {
 		ss.S.Log().Panic(

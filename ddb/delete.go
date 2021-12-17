@@ -14,7 +14,7 @@ import (
 
 // Delete describes the interface to delete one record by key.
 type Delete interface {
-	ss.NoCopy
+	CheckedExpression
 
 	Condition(string) Delete
 	Values(Values) Delete
@@ -41,7 +41,7 @@ func (client *client) DeleteIfExisting(key KeyRecord) Delete {
 }
 
 type delete struct {
-	ss.NoCopyImpl
+	checkedExpression
 
 	db    *dynamodb.DynamoDB
 	input dynamodb.DeleteItemInput
@@ -49,7 +49,8 @@ type delete struct {
 
 func (client *client) newDeleteTrans(key KeyRecord) *delete {
 	result := delete{
-		db: client.db,
+		checkedExpression: newCheckedExpression(),
+		db:                client.db,
 		input: dynamodb.DeleteItemInput{
 			TableName: aws.String(ss.S.NewBuildEntityName(key.GetTable())),
 		},
@@ -106,7 +107,7 @@ func (trans *delete) RequestAndReturn(resultRecord RecordBuffer) Result {
 
 func (trans *delete) request() (Result, *dynamodb.DeleteItemOutput) {
 	request, output := trans.db.DeleteItemRequest(&trans.input)
-	result, err := newResult(request.Send())
+	result, err := newResult(request.Send(), trans.isConditionalCheckFailAllowed)
 	if err != nil {
 		ss.S.Log().Panic(
 			ss.

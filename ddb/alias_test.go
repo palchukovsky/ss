@@ -35,7 +35,7 @@ func Test_DDB_Alias_AliasReservedInString(test *testing.T) {
 	update := "set filed = 1, field2= 2, field3=3 remove filed4, field5"
 	trans := ddb.NewWriteTrans()
 	trans.Update(newTestAliasRecord(), update)
-	input := trans.Result()
+	input := trans.GetResult()
 	assert.Equal(1, len(input.TransactItems))
 	assert.NotNil(update, input.TransactItems[0].Update)
 	assert.Equal(update, *input.TransactItems[0].Update.UpdateExpression)
@@ -44,7 +44,7 @@ func Test_DDB_Alias_AliasReservedInString(test *testing.T) {
 	update = "set user = 1, next 2 = 2 remove snapshot, field4, share.#l and attribute_not_exists(owner)"
 	trans = ddb.NewWriteTrans()
 	trans.Update(newTestAliasRecord(), update).Alias("#l", "l")
-	input = trans.Result()
+	input = trans.GetResult()
 	assert.Equal(1, len(input.TransactItems))
 	assert.NotNil(update, input.TransactItems[0].Update)
 	assert.Equal(

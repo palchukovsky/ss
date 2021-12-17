@@ -15,7 +15,7 @@ import (
 
 // Update describes the interface to update one record by key.
 type Update interface {
-	ss.NoCopy
+	CheckedExpression
 
 	Set(expression string) Update
 	Remove(fieldName string) Update
@@ -45,7 +45,8 @@ func newUpdateTemplate(
 	record Record,
 ) *update {
 	result := update{
-		db: db,
+		checkedExpression: newCheckedExpression(),
+		db:                db,
 		Input: dynamodb.UpdateItemInput{
 			TableName: aws.String(ss.S.NewBuildEntityName(record.GetTable())),
 		},
@@ -60,7 +61,7 @@ func newUpdateTemplate(
 }
 
 type update struct {
-	ss.NoCopyImpl
+	checkedExpression
 
 	db      *dynamodb.DynamoDB       `json:"-"`
 	Input   dynamodb.UpdateItemInput `json:"input"`
@@ -154,7 +155,7 @@ func (update *update) request() (Result, *dynamodb.UpdateItemOutput) {
 			&update.Input.ExpressionAttributeNames)
 	}
 	request, output := update.db.UpdateItemRequest(&update.Input)
-	result, err := newResult(request.Send())
+	result, err := newResult(request.Send(), update.isConditionalCheckFailAllowed)
 	if err != nil {
 		ss.S.Log().Panic(
 			ss.NewLogMsg("failed to update item in table %q", update.getTable()).

@@ -31,7 +31,7 @@ func (lambda lambda) Execute(request ws.Request) error {
 
 	trans := ddb.NewWriteTrans()
 
-	trans.Create(
+	trans.CreateIfNotExists(
 		db.NewConnection(
 			request.GetConnectionID(),
 			request.GetUserID(),

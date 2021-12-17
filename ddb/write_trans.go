@@ -15,11 +15,10 @@ import (
 type WriteTrans interface {
 	ss.NoCopy
 
-	Result() *dynamodb.TransactWriteItemsInput
 	IsEmpty() bool
 	GetSize() int
 
-	Create(DataRecord) CreateTrans
+	CreateIfNotExists(DataRecord) CreateTrans
 	CreateOrReplace(DataRecord) CreateTrans
 	Replace(DataRecord) CreateTrans
 	Check(KeyRecord) CheckTrans
@@ -28,6 +27,9 @@ type WriteTrans interface {
 	DeleteIfExisting(KeyRecord) DeleteTrans
 
 	MarshalLogMsg(destination map[string]interface{})
+
+	GetResult() *dynamodb.TransactWriteItemsInput
+	getAllowedToFailConditionalChecks() map[int]struct{}
 }
 
 // NewWriteTrans creates new write transaction builder.
@@ -37,22 +39,23 @@ func NewWriteTrans() WriteTrans {
 
 // WriteTransExpression describes the part of WriteTrans
 // witch builds typed expression.
-type WriteTransExpression interface {
-	ss.NoCopy
-
-	GetIndex() int
-}
+type WriteTransExpression interface{ CheckedTransExpression }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type writeTrans struct {
 	ss.NoCopyImpl
 
-	result []*dynamodb.TransactWriteItem
+	result                         []*dynamodb.TransactWriteItem
+	allowedToFailConditionalChecks map[int]struct{}
 }
 
-func (trans *writeTrans) Result() *dynamodb.TransactWriteItemsInput {
+func (trans *writeTrans) GetResult() *dynamodb.TransactWriteItemsInput {
 	return &dynamodb.TransactWriteItemsInput{TransactItems: trans.result}
+}
+
+func (trans *writeTrans) getAllowedToFailConditionalChecks() map[int]struct{} {
+	return trans.allowedToFailConditionalChecks
 }
 
 func (trans *writeTrans) IsEmpty() bool { return len(trans.result) == 0 }
@@ -65,9 +68,8 @@ func (trans *writeTrans) MarshalLogMsg(destination map[string]interface{}) {
 ////////////////////////////////////////////////////////////////////////////////
 
 type writeTransExpression struct {
-	ss.NoCopyImpl
+	checkedTransExpression
 	trans *writeTrans
-	index int
 }
 
 func newWriteTransExpression(
@@ -76,12 +78,12 @@ func newWriteTransExpression(
 ) writeTransExpression {
 	trans.result = append(trans.result, &result)
 	return writeTransExpression{
+		checkedTransExpression: newCheckedTransExpression(
+			len(trans.result)-1,
+			trans.getAllowedToFailConditionalChecks()),
 		trans: trans,
-		index: len(trans.result) - 1,
 	}
 }
-
-func (trans *writeTransExpression) GetIndex() int { return trans.index }
 
 func (trans *writeTransExpression) marshalValues(
 	source Values,

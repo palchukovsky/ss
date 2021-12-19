@@ -151,6 +151,60 @@ func (time DateOrTime) IsEqual(rhs DateOrTime) bool {
 	return time.IsDateOnly == rhs.IsDateOnly && time.Value.Equal(rhs.Value)
 }
 
+func (time DateOrTime) String() string {
+	if time.IsDateOnly {
+		year, month, day := time.Value.Get().Date()
+		return fmt.Sprintf("%d%02d%02d", year, month, day)
+	}
+	return time.Value.String()
+}
+
+func (time *DateOrTime) MarshalText() ([]byte, error) {
+	return []byte(time.String()), nil
+}
+
+func (time *DateOrTime) UnmarshalText(source []byte) error {
+
+	if len(source) > 4+1+2+1+2 /* 2009-01-07 */ {
+		if err := time.Value.UnmarshalText(source); err != nil {
+			return err
+		}
+		time.IsDateOnly = false
+		return nil
+	}
+
+	if len(source) == 0 {
+		time.Value = Time{}
+		return nil
+	}
+
+	match := regexp.
+		MustCompile(`^(\d{4})(0[1-9]|1[0-2])(0[1-9]|[1-2][\d]|3[0-1])?$`).
+		FindStringSubmatch(string(source))
+	if len(match) == 0 {
+		return fmt.Errorf(`failed to parse event time %q`, string(source))
+	}
+	var year int
+	var month int
+	var day int
+	var err error
+	if year, err = strconv.Atoi(match[1]); err != nil {
+		return fmt.Errorf(`failed to parse year in event time %q`, string(source))
+	}
+	if month, err = strconv.Atoi(match[2]); err != nil {
+		return fmt.Errorf(`failed to parse year in event time %q`, string(source))
+	}
+	if day, err = strconv.Atoi(match[3]); err != nil {
+		return fmt.Errorf(`failed to parse day in event time %q`, string(source))
+	}
+
+	time.Value = NewTime(
+		stdtime.Date(year, stdtime.Month(month), day, 0, 0, 0, 0, stdtime.UTC))
+	time.IsDateOnly = true
+
+	return nil
+}
+
 // MarshalDynamoDBAttributeValue implements serialization for Dynamodb.
 func (time DateOrTime) MarshalDynamoDBAttributeValue(
 	result *dynamodb.AttributeValue,

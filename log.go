@@ -36,6 +36,8 @@ type Log interface {
 
 	// CheckExit makes final check for panic, writes all error data.
 	// It has to be the one and the lowest level check in the call.
+	// Each goroutine should has at the beggining sonthing like:
+	// defer func() { service.log.CheckExit(recover()) }()
 	CheckExit(panicValue interface{})
 }
 

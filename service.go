@@ -38,11 +38,6 @@ type Service interface {
 	Config() ServiceConfig
 	Build() Build
 
-	// Go runs goroutine with all required checks.
-	// Has to be used instead of native "go" each time when
-	// goroutine executes business logic or could panic.
-	Go(func())
-
 	StartLambda(getFailInfo func() []LogMsgAttr)
 	CompleteLambda(panicValue interface{})
 	GetLambdaTimeout() <-chan time.Time
@@ -129,13 +124,6 @@ func (service *service) Config() ServiceConfig { return service.config }
 func (service *service) Build() Build          { return service.build }
 func (service *service) Name() string          { return service.name }
 func (service *service) Product() string       { return service.product }
-
-func (service *service) Go(f func()) {
-	go func() {
-		defer func() { service.log.CheckExit(recover()) }()
-		f()
-	}()
-}
 
 func (service *service) Firebase() *firebase.App {
 	result := atomic.LoadPointer(&service.fireabase)

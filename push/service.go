@@ -27,7 +27,10 @@ func NewService(db ddb.Client) *Service {
 		taskSyncChan: make(chan struct{}),
 		taskQueue:    taskQueue,
 	}
-	ss.S.Go(func() { result.execTasks() })
+	go func() {
+		defer func() { ss.S.Log().CheckExit(recover()) }()
+		result.execTasks()
+	}()
 	return result
 }
 

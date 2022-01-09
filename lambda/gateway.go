@@ -56,7 +56,10 @@ func (gateway Gateway) NewSessionGatewaySendSession(
 		log:         log,
 	}
 	result.sync.Add(1)
-	ss.S.Go(func() { result.runSender() })
+	go func() {
+		defer func() { ss.S.Log().CheckExit(recover()) }()
+		result.runSender()
+	}()
 	return &result
 }
 
@@ -155,13 +158,15 @@ func (session *gatewaySendSession) runSender() {
 		}
 
 		doneChan := make(chan struct{})
-		ss.S.Go(func() {
+		go func() {
+			defer func() { ss.S.Log().CheckExit(recover()) }()
 			session.send(message.Connection, data)
 			doneChan <- struct{}{}
-		})
+		}()
 
 		session.sync.Add(1)
-		ss.S.Go(func() {
+		go func() {
+			defer func() { ss.S.Log().CheckExit(recover()) }()
 			defer session.sync.Done()
 
 			select {
@@ -182,7 +187,7 @@ func (session *gatewaySendSession) runSender() {
 				logMessage.AddDump(message.Data)
 			}
 			session.log.Warn(logMessage)
-		})
+		}()
 
 	}
 }

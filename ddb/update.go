@@ -158,7 +158,9 @@ func (update *update) request() (Result, *dynamodb.UpdateItemOutput) {
 	result, err := newResult(request.Send(), update.isConditionalCheckFailAllowed)
 	if err != nil {
 		ss.S.Log().Panic(
-			ss.NewLogMsg("failed to update item in table %q", update.getTable()).
+			ss.
+				NewLogMsg("failed to update item in table %q", update.getTable()).
+				AddDump(update).
 				AddErr(err))
 	}
 	return result, output

@@ -159,7 +159,7 @@ func (time DateOrTime) String() string {
 	return time.Value.String()
 }
 
-func (time *DateOrTime) MarshalText() ([]byte, error) {
+func (time DateOrTime) MarshalText() ([]byte, error) {
 	return []byte(time.String()), nil
 }
 

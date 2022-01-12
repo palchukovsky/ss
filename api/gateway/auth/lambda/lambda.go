@@ -1,4 +1,4 @@
-// Copyright 2021, the SS project owners. All rights reserved.
+// Copyright 2021-2022, the SS project owners. All rights reserved.
 // Please see the OWNERS and LICENSE files for details.
 
 // Answers "200 OK" with backend information at success, or "406 Not Acceptable"

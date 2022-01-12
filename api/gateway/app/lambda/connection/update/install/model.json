@@ -26,12 +26,14 @@
           "maxLength": 4096
         }
       },
+      "additionalProperties": false,
       "required": [
         "device",
         "fcm"
       ]
     }
   },
+  "additionalProperties": false,
   "required": [
     "m",
     "i",

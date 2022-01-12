@@ -29,7 +29,7 @@ func (lambda lambda) Execute(request ws.Request) error {
 	isSuccess := lambda.
 		db.
 		Delete(db.NewConnectionKey(request.GetConnectionID())).
-		RequestWithResult().
+		Request().
 		IsSuccess()
 	if !isSuccess {
 		request.Log().Warn(

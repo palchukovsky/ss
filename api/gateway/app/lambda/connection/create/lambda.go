@@ -46,7 +46,7 @@ func (lambda lambda) Execute(request ws.Request) error {
 				client.Key))
 	}
 
-	lambda.db.WriteWithResult(trans)
+	lambda.db.Write(trans)
 
 	request.Log().Debug(ss.NewLogMsg("connected").Add(client))
 	return nil

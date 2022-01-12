@@ -26,7 +26,7 @@ type Client interface {
 	Delete(key KeyRecord) Delete
 	DeleteIfExisting(key KeyRecord) Delete
 
-	WriteWithResult(WriteTrans) TransResult
+	Write(WriteTrans) TransResult
 }
 
 // GetClientInstance returns reference to client singleton.
@@ -65,7 +65,7 @@ func (client *client) Get(key KeyRecordBuffer) Get {
 	return newGet(client.db, key)
 }
 
-func (client *client) WriteWithResult(trans WriteTrans) TransResult {
+func (client *client) Write(trans WriteTrans) TransResult {
 	request, _ := client.db.TransactWriteItemsRequest(trans.GetResult())
 	result, err := newTransResult(request.Send(), trans)
 	if err != nil {

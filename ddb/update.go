@@ -28,7 +28,7 @@ type Update interface {
 
 	Condition(string) Update
 
-	RequestWithResult() Result
+	Request() Result
 	RequestAndReturn(RecordBuffer) Result
 }
 
@@ -115,7 +115,7 @@ func (update *update) Condition(condition string) Update {
 	return update
 }
 
-func (update *update) RequestWithResult() Result {
+func (update *update) Request() Result {
 	result, _ := update.request()
 	return result
 }

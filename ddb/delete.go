@@ -19,7 +19,7 @@ type Delete interface {
 	Condition(string) Delete
 	Values(Values) Delete
 
-	RequestWithResult() Result
+	Request() Result
 	RequestAndReturn(RecordBuffer) Result
 }
 
@@ -81,7 +81,7 @@ func (trans *delete) Condition(condition string) Delete {
 	return trans
 }
 
-func (trans *delete) RequestWithResult() Result {
+func (trans *delete) Request() Result {
 	result, _ := trans.request()
 	return result
 }

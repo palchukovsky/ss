@@ -18,13 +18,13 @@ type Create interface {
 	Condition(string) Create
 	Values(Values) Create
 
-	RequestWithResult() Result
+	Request() Result
 }
 
 type CreateIfNotExists interface {
 	CheckedExpression
 
-	RequestWithResult() Result
+	Request() Result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ func (trans *create) Values(values Values) Create {
 	return trans
 }
 
-func (trans *create) RequestWithResult() Result {
+func (trans *create) Request() Result {
 	request, _ := trans.db.PutItemRequest(&trans.input)
 	result, err := newResult(request.Send(), trans.isConditionalCheckFailAllowed)
 	if err != nil {
@@ -120,8 +120,8 @@ func newCreateIfNotExists(
 	return &createIfNotExists{create: *newCreate(record, db)}
 }
 
-func (trans *createIfNotExists) RequestWithResult() Result {
-	return trans.create.RequestWithResult()
+func (trans *createIfNotExists) Request() Result {
+	return trans.create.Request()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

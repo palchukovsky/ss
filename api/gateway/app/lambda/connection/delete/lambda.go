@@ -26,12 +26,11 @@ func Run() { apiapp.Run() }
 type lambda struct{ db ddb.Client }
 
 func (lambda lambda) Execute(request ws.Request) error {
-	isSuccess := lambda.
+	trans := lambda.
 		db.
-		Delete(db.NewConnectionKey(request.GetConnectionID())).
-		Request().
-		IsSuccess()
-	if !isSuccess {
+		Delete(db.NewConnectionKey(request.GetConnectionID()))
+	trans.AllowConditionalCheckFail()
+	if !trans.Request().IsSuccess() {
 		request.Log().Warn(
 			ss.
 				NewLogMsg(`failed to find connection to delete`).

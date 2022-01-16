@@ -23,6 +23,7 @@ type Client interface {
 	CreateIfNotExists(data DataRecord) CreateIfNotExists
 	CreateOrReplace(data DataRecord) Create
 	Update(key KeyRecord) Update
+	UpdateIfExisting(key KeyRecord) Update
 	Delete(key KeyRecord) Delete
 	DeleteIfExisting(key KeyRecord) Delete
 

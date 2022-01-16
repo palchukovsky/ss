@@ -36,30 +36,28 @@ type Update interface {
 
 func (client *client) Update(key KeyRecord) Update {
 	result := newUpdateTemplate(client.db, key)
-	result.Input.ConditionExpression = aws.String(
-		fmt.Sprintf(
-			"attribute_exists(%s)",
-			aliasReservedWord(
-				key.GetKeyPartitionField(),
-				&result.Input.ExpressionAttributeNames)))
 	result.SetKey(key.GetKey())
 	return result
 }
 
-func (client *client) UpdateIfExisting(key KeyRecord) Update {
-	result := newUpdateTemplate(client.db, key)
-	result.SetKey(key.GetKey())
-	return result
-}
-
-func newUpdateTemplate(db *dynamodb.DynamoDB, record Record) *update {
-	return &update{
+func newUpdateTemplate(
+	db *dynamodb.DynamoDB,
+	record Record,
+) *update {
+	result := update{
 		checkedExpression: newCheckedExpression(),
 		db:                db,
 		Input: dynamodb.UpdateItemInput{
 			TableName: aws.String(ss.S.NewBuildEntityName(record.GetTable())),
 		},
 	}
+	result.Input.ConditionExpression = aws.String(
+		fmt.Sprintf(
+			"attribute_exists(%s)",
+			aliasReservedWord(
+				record.GetKeyPartitionField(),
+				&result.Input.ExpressionAttributeNames)))
+	return &result
 }
 
 type update struct {

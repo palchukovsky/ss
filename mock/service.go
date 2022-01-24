@@ -106,18 +106,6 @@ func (mr *MockServiceMockRecorder) GetLambdaTimeout() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLambdaTimeout", reflect.TypeOf((*MockService)(nil).GetLambdaTimeout))
 }
 
-// Go mocks base method.
-func (m *MockService) Go(arg0 func()) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Go", arg0)
-}
-
-// Go indicates an expected call of Go.
-func (mr *MockServiceMockRecorder) Go(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Go", reflect.TypeOf((*MockService)(nil).Go), arg0)
-}
-
 // Lock mocks base method.
 func (m *MockService) Lock() {
 	m.ctrl.T.Helper()

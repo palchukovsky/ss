@@ -93,7 +93,10 @@ func newConditionalTransCheckFail(
 	conditionalTransCheckFail,
 	bool,
 ) {
-	result := conditionalTransCheckFail{err: err}
+	result := conditionalTransCheckFail{
+		err:   err,
+		trans: trans,
+	}
 	allowedToFailConditionalCheck := trans.getAllowedToFailConditionalChecks()
 	return result,
 		len(allowedToFailConditionalCheck) == 0 ||

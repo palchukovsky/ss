@@ -245,7 +245,8 @@ func (table TableAbstraction) EnableStreams(
 			EventSourceArn: description.Table.LatestStreamArn,
 			FunctionName: aws.String(
 				ss.S.NewBuildEntityName("api_dbevent_" + stream.lambda)),
-			StartingPosition: aws.String(lambda.EventSourcePositionLatest),
+			StartingPosition:           aws.String(lambda.EventSourcePositionLatest),
+			BisectBatchOnFunctionError: ss.BoolPtr(true),
 		}
 		request, _ := lambda.
 			New(ss.S.NewAWSSessionV1()).

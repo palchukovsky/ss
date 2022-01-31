@@ -212,17 +212,14 @@ func (table TableAbstraction) EnableTimeToLive(fieldName string) error {
 	})
 }
 
-func (table TableAbstraction) EnableStreams(
-	viewType StreamViewType,
-	streams []Stream,
-) error {
+func (table TableAbstraction) EnableStreams(streams Streams) error {
 	if err := table.Wait(); err != nil {
 		return err
 	}
 
 	streamSpecification := ddb.StreamSpecification{
 		StreamEnabled:  ss.BoolPtr(true),
-		StreamViewType: aws.String(string(viewType)),
+		StreamViewType: aws.String(string(streams.ViewType)),
 	}
 	err := table.db.UpdateTable(ddb.UpdateTableInput{
 		TableName:           table.getAWSName(),
@@ -239,7 +236,7 @@ func (table TableAbstraction) EnableStreams(
 		return err
 	}
 
-	for _, stream := range streams {
+	for _, stream := range streams.Streams {
 		input := lambda.CreateEventSourceMappingInput{
 			Enabled:        ss.BoolPtr(true),
 			EventSourceArn: description.Table.LatestStreamArn,
@@ -280,5 +277,17 @@ const (
 	StreamViewTypeNew  StreamViewType = ddb.StreamViewTypeNewImage
 	StreamViewTypeFull StreamViewType = ddb.StreamViewTypeNewAndOldImages
 )
+
+type Streams struct {
+	ViewType StreamViewType
+	Streams  []Stream
+}
+
+func NewStreams(viewType StreamViewType, streams ...Stream) Streams {
+	return Streams{
+		ViewType: viewType,
+		Streams:  streams,
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////

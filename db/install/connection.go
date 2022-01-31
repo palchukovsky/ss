@@ -32,11 +32,11 @@ func (table connection) Setup() error {
 
 			ddbinstall.StreamViewTypeNew,
 		*/
-		ddbinstall.StreamViewTypeNone,
-		// -------------------------------------------------------------------------
-		[]ddbinstall.Stream{
+		ddbinstall.NewStreams(
+			ddbinstall.StreamViewTypeNone,
+			// -------------------------------------------------------------------------
 			ddbinstall.NewStream("Init"),
-		})
+		))
 	if err != nil {
 		return err
 	}

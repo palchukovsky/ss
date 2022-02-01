@@ -11,20 +11,11 @@ import (
 	ddbinstall "github.com/palchukovsky/ss/ddb/install"
 )
 
-type user struct {
-	ddbinstall.TableAbstraction
+type user struct{ ddbinstall.TableAbstraction }
 
-	streamsFactory func() *ddbinstall.Streams
-}
-
-func newUserTable(
-	ddb ddbinstall.DB,
-	log ss.Log,
-	streamsFactory func() *ddbinstall.Streams,
-) ddbinstall.Table {
+func newUserTable(ddb ddbinstall.DB, log ss.Log) ddbinstall.Table {
 	return user{
 		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.User{}, log),
-		streamsFactory:   streamsFactory,
 	}
 }
 
@@ -37,12 +28,14 @@ func (table user) Setup() error {
 	if err := table.EnableTimeToLive("anonymExpiration"); err != nil {
 		return err
 	}
-	if streams := table.streamsFactory(); streams != nil {
-		if err := table.EnableStreams(*streams); err != nil {
-			return err
-		}
-	}
-	return nil
+	return table.EnableStreams(
+		ddbinstall.NewStreams(
+			// Full view required to separate business logic record inserts
+			// and deletes from index records inserts and deletes:
+			ddbinstall.StreamViewTypeFull,
+			ddbinstall.NewStream("UserContentUpdate"),
+		),
+	)
 }
 
 func (user) InsertData() error { return nil }

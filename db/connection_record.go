@@ -40,31 +40,31 @@ func (ConnectionUserIndex) GetProjection() []string { return []string{} }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type connectionKeyValue struct {
+type ConnectionKeyValue struct {
 	ID ss.ConnectionID `json:"id"`
 }
 
-func newConnectionKeyValue(id ss.ConnectionID) connectionKeyValue {
-	return connectionKeyValue{ID: id}
+func newConnectionKeyValue(id ss.ConnectionID) ConnectionKeyValue {
+	return ConnectionKeyValue{ID: id}
 }
 
 type connectionKey struct {
 	connectionRecord
-	connectionKeyValue
+	ConnectionKeyValue
 }
 
 func NewConnectionKey(id ss.ConnectionID) connectionKey {
-	return connectionKey{connectionKeyValue: newConnectionKeyValue(id)}
+	return connectionKey{ConnectionKeyValue: newConnectionKeyValue(id)}
 }
 
-func (key connectionKey) GetKey() interface{} { return key.connectionKeyValue }
+func (key connectionKey) GetKey() interface{} { return key.ConnectionKeyValue }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Connection describes the record of a table with active connections.
 type Connection struct {
 	connectionRecord
-	connectionKeyValue
+	ConnectionKeyValue
 	User           ss.UserID `json:"user"`
 	Version        string    `json:"ver"`
 	ExpirationTime ss.Time   `json:"expiration"`
@@ -77,7 +77,7 @@ func NewConnection(
 	version string,
 ) Connection {
 	return Connection{
-		connectionKeyValue: newConnectionKeyValue(id),
+		ConnectionKeyValue: newConnectionKeyValue(id),
 		User:               user,
 		Version:            version,
 		ExpirationTime:     ss.Now().Add(((time.Hour * 24) * 30) * 1),

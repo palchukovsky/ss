@@ -19,6 +19,7 @@ func (UserRecord) GetKeyPartitionField() string { return "id" }
 func (UserRecord) GetKeySortField() string      { return "" }
 
 ////////////////////////////////////////////////////////////////////////////////
+
 type userKeyValue struct {
 	ID ss.UserID `json:"id"`
 }
@@ -72,7 +73,7 @@ func NewFirebaseUser(
 	firebaseID string,
 	name string,
 	isAnonymous bool,
-) (User, UserUniqueIndex) {
+) (User, userUniqueIndex) {
 	result := User{
 		userKeyValue:          newUserKeyValueValue(ss.NewUserID()),
 		FirebaseID:            firebaseID,
@@ -86,10 +87,7 @@ func NewFirebaseUser(
 			result.CreationTime)
 	}
 
-	uniqueIndex := UserUniqueIndex{
-		Value:  []byte("f#" + result.FirebaseID),
-		UserID: result.ID,
-	}
+	uniqueIndex := newFirebaseUserUniqueIndex(result.ID, result.FirebaseID)
 
 	return result, uniqueIndex
 }
@@ -108,13 +106,24 @@ func (record User) GetName() string {
 func (record User) GetData() interface{} { return record }
 
 ////////////////////////////////////////////////////////////////////////////////
-type UserUniqueIndex struct {
+type userUniqueIndex struct {
 	UserRecord
 	Value  []byte    `json:"id"`
 	UserID ss.UserID `json:"user"`
 }
 
-func (record UserUniqueIndex) GetData() interface{} { return record }
+func newFirebaseUserUniqueIndex(
+	user ss.UserID,
+	firebaseID string,
+) userUniqueIndex {
+	return userUniqueIndex{
+		Value:  []byte("f#" + firebaseID),
+		UserID: user,
+	}
+}
+
+func (record userUniqueIndex) GetData() interface{} { return record }
+func (record userUniqueIndex) GetKey() interface{}  { return record }
 
 ////////////////////////////////////////////////////////////////////////////////
 

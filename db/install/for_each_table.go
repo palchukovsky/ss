@@ -23,7 +23,7 @@ func ForEachTable(
 		installer.NewTables(db, log),
 		newConnectionTable(db, log),
 		newDeviceTable(db, log),
-		newUserTable(db, log, installer.NewUserTableStreams))
+		newUserTable(db, log))
 
 	for _, table := range tables {
 		table.Log().Debug(ss.NewLogMsg("processing..."))

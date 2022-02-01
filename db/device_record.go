@@ -18,26 +18,26 @@ func (DeviceRecord) GetKeySortField() string      { return "" }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type deviceKeyValue struct {
+type DeviceKeyValue struct {
 	FCMToken ss.FirebaseCloudMessagingToken `json:"fcm"`
 }
 
-func newDeviceKeyValue(fcmToken ss.FirebaseCloudMessagingToken) deviceKeyValue {
-	return deviceKeyValue{FCMToken: fcmToken}
+func newDeviceKeyValue(fcmToken ss.FirebaseCloudMessagingToken) DeviceKeyValue {
+	return DeviceKeyValue{FCMToken: fcmToken}
 }
 
 type DeviceKey struct {
 	DeviceRecord
-	deviceKeyValue
+	DeviceKeyValue
 }
 
 func NewDeviceKey(fcmToken ss.FirebaseCloudMessagingToken) DeviceKey {
 	return DeviceKey{
-		deviceKeyValue: newDeviceKeyValue(fcmToken),
+		DeviceKeyValue: newDeviceKeyValue(fcmToken),
 	}
 }
 
-func (key DeviceKey) GetKey() interface{} { return key.deviceKeyValue }
+func (key DeviceKey) GetKey() interface{} { return key.DeviceKeyValue }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -45,7 +45,7 @@ type DeviceCryptoKey = crypto.AES128Key
 
 type Device struct {
 	DeviceRecord
-	deviceKeyValue
+	DeviceKeyValue
 	ID   ss.DeviceID     `json:"id"`
 	User ss.UserID       `json:"user"`
 	Key  DeviceCryptoKey `json:"key"`
@@ -58,7 +58,7 @@ func NewDevice(
 	key DeviceCryptoKey,
 ) Device {
 	return Device{
-		deviceKeyValue: newDeviceKeyValue(fcmToken),
+		DeviceKeyValue: newDeviceKeyValue(fcmToken),
 		ID:             id,
 		User:           user,
 		Key:            key,

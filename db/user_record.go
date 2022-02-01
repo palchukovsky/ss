@@ -106,9 +106,14 @@ func (record User) GetName() string {
 func (record User) GetData() interface{} { return record }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+type userUniqueIndexKeyValue struct {
+	Value []byte `json:"id"`
+}
+
 type userUniqueIndex struct {
 	UserRecord
-	Value  []byte    `json:"id"`
+	userUniqueIndexKeyValue
 	UserID ss.UserID `json:"user"`
 }
 
@@ -117,13 +122,18 @@ func newFirebaseUserUniqueIndex(
 	firebaseID string,
 ) userUniqueIndex {
 	return userUniqueIndex{
-		Value:  []byte("f#" + firebaseID),
+		userUniqueIndexKeyValue: userUniqueIndexKeyValue{
+			Value: []byte("f#" + firebaseID),
+		},
 		UserID: user,
 	}
 }
 
 func (record userUniqueIndex) GetData() interface{} { return record }
-func (record userUniqueIndex) GetKey() interface{}  { return record }
+
+func (record userUniqueIndex) GetKey() interface{} {
+	return record.userUniqueIndexKeyValue
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 

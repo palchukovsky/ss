@@ -8,6 +8,7 @@ import (
 
 	"github.com/palchukovsky/ss"
 	connectionupdatelambda "github.com/palchukovsky/ss/api/gateway/app/lambda/connection/update/install"
+	userdeletelambda "github.com/palchukovsky/ss/api/gateway/app/lambda/user/delete/install"
 )
 
 type command interface {
@@ -154,6 +155,18 @@ func newWSConnectionUpdateCommand(
 	return newWSCommand(
 		"ConnectionUpdate",
 		newModelSchemaFromEmbedFS(connectionupdatelambda.ModelFS),
+		log)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func newWSUserDeleteCommand(
+	sourcePath string,
+	log ss.LogSession,
+) (command, error) {
+	return newWSCommand(
+		"UserDelete",
+		newModelSchemaFromEmbedFS(userdeletelambda.ModelFS),
 		log)
 }
 

@@ -87,7 +87,7 @@ func (deleter *deleter) deleteConnections() {
 					ss.NewLogMsg("deleted connection").Add(key.ID))
 			} else {
 				deleter.request.Log().Debug(
-					ss.NewLogMsg("connection already deleted").Add(key.ID))
+					ss.NewLogMsg("no connection record found").Add(key.ID))
 			}
 
 		}(record.ConnectionKeyValue)
@@ -132,7 +132,7 @@ func (deleter *deleter) deleteDevices() {
 						ss.NewLogMsg("deleted device").Add(key.FCMToken))
 				} else {
 					deleter.request.Log().Debug(
-						ss.NewLogMsg("device already deleted").Add(key.FCMToken))
+						ss.NewLogMsg("no device record found").Add(key.FCMToken))
 				}
 
 			}(record.DeviceKeyValue)

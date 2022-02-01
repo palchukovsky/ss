@@ -11,4 +11,5 @@ import (
 // Installer describes the API getway installing interface.
 type Installer interface {
 	NewGateways(ss.Log) []gatewayinstall.Gateway
+	IsUserCanRemoveHimself() bool
 }

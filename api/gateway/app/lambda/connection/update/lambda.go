@@ -5,34 +5,10 @@ package connectionupdatelambda
 
 import (
 	"github.com/palchukovsky/ss"
-	apiapp "github.com/palchukovsky/ss/api/gateway/app"
 	"github.com/palchukovsky/ss/db"
 	"github.com/palchukovsky/ss/ddb"
 	ws "github.com/palchukovsky/ss/lambda/gateway/ws"
 )
-
-type request struct {
-	Device   ss.DeviceID                    `json:"device"`
-	FCMToken ss.FirebaseCloudMessagingToken `json:"fcm"`
-}
-
-type response struct{}
-
-func newResponse() response { return response{} }
-
-////////////////////////////////////////////////////////////////////////////////
-
-func Init(initService func(projectPackage string, params ss.ServiceParams)) {
-	apiapp.Init(
-		func() ws.Lambda { return lambda{db: ddb.GetClientInstance()} },
-		func(projectPackage string) {
-			initService(projectPackage, ss.ServiceParams{IsAWS: true})
-		})
-}
-
-func Run() { apiapp.Run() }
-
-////////////////////////////////////////////////////////////////////////////////
 
 type lambda struct{ db ddb.Client }
 

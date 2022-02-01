@@ -4,6 +4,8 @@
 package db
 
 import (
+	"errors"
+
 	"github.com/palchukovsky/ss"
 	"github.com/palchukovsky/ss/ddb"
 )
@@ -16,16 +18,16 @@ type deleteUserRecord struct {
 
 func (record *deleteUserRecord) Clear() { *record = deleteUserRecord{} }
 
-func DeleteUser(id ss.UserID, db ddb.Client) bool {
+func DeleteUser(id ss.UserID, db ddb.Client) (bool, error) {
 
 	record := deleteUserRecord{UserKey: NewUserKey(id)}
 	if !db.Find(&record).Request() {
-		return false
+		return false, nil
 	}
 
 	if record.FirebaseID == "" {
 		// This version works only with Firebase.
-		ss.S.Log().Panic(ss.NewLogMsg("user does not have Firebase ID").Add(id))
+		return false, errors.New("user does not have Firebase ID")
 	}
 
 	trans := ddb.NewWriteTrans(true)
@@ -34,10 +36,10 @@ func DeleteUser(id ss.UserID, db ddb.Client) bool {
 
 	if result := db.Write(trans); !result.IsSuccess() {
 		if result.ParseConditions().IsPassed(recordCondition) {
-			ss.S.Log().Panic(ss.NewLogMsg("user does not have uniquer key").Add(id))
+			return false, errors.New("user does not have uniquer key")
 		}
-		return false
+		return false, nil
 	}
 
-	return true
+	return true, nil
 }

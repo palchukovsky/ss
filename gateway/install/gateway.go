@@ -23,7 +23,12 @@ type Gateway interface {
 }
 
 // NewGateway creates new gateway instance.
-func NewGateway(id string, name string, log ss.LogSession) Gateway {
+func NewGateway(
+	id string,
+	name string,
+	isUserCanRemoveHimself bool,
+	log ss.LogSession,
+) Gateway {
 	return gateway{
 		id:   id,
 		name: name,
@@ -31,6 +36,7 @@ func NewGateway(id string, name string, log ss.LogSession) Gateway {
 			ss.
 				NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
 				AddVal("gateway", name)),
+		isUserCanRemoveHimself: isUserCanRemoveHimself,
 	}
 }
 
@@ -119,6 +125,8 @@ type gateway struct {
 	id   string
 	name string
 	log  ss.LogSession
+
+	isUserCanRemoveHimself bool
 }
 
 func (gateway gateway) GetName() string   { return gateway.name }
@@ -197,6 +205,16 @@ func (gateway *gateway) readCommads(sourcePath string) []command {
 					AddErr(err))
 		}
 		result = append(result, connectionUpdate)
+	}
+	if gateway.isUserCanRemoveHimself {
+		userDelete, err := newWSUserDeleteCommand(sourcePath, gateway.log)
+		if err != nil {
+			log.Panic(
+				ss.
+					NewLogMsg(`failed to create API command "user delete"`).
+					AddErr(err))
+		}
+		result = append(result, userDelete)
 	}
 
 	return result

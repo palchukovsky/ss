@@ -44,7 +44,11 @@ func (service service) Start() {
 
 func (service service) handle(request awsRequest) awsResponse {
 	ss.S.StartLambda(
-		func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) })
+		func() []ss.LogMsgAttr {
+			// Duplicates request data in the logs records with panic,
+			// but not in other records.
+			return ss.NewLogMsgAttrRequestDumps(request)
+		})
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	log := ss.S.Log().NewSession(

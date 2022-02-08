@@ -179,15 +179,16 @@ func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
 		defer service.lambdaTimeoutMutex.Unlock()
 		// observers.Chans could be already not the same as not service has, but
 		// mutex has to be the same as it could be the same also.
+		// (@palchukovsky: ???, what?)
 
 		var sync sync.WaitGroup
-		sync.Add(1)
-		go func() {
-			for _, observerChan := range observers.Chans {
+		for _, observerChan := range observers.Chans {
+			sync.Add(1)
+			go func(observerChan chan<- time.Time) {
 				observerChan <- value
-			}
-			sync.Done()
-		}()
+				sync.Done()
+			}(observerChan)
+		}
 
 		if observers == service.lambdaTimeoutObservers {
 			// Lambda isn't finished yet.

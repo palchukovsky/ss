@@ -67,13 +67,15 @@ var (
 func handle(ctx context.Context, request request) (response, error) {
 	ss.S.StartLambda(
 		func() []ss.LogMsgAttr {
+			// Duplicates request data in the logs records with panic,
+			// but not in other records.
 			return ss.NewLogMsgAttrRequestDumps(request)
 		})
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	accessToken, hasAccessToken := request.Headers[authHeaderName]
 	if !hasAccessToken {
-		getLog(request).Error(
+		newLog(request).Error(
 			ss.NewLogMsg(`no access token`).AddRequest(request))
 		return response{}, errors.New("no access token")
 	}
@@ -81,13 +83,13 @@ func handle(ctx context.Context, request request) (response, error) {
 	user, expirationTime, userErr, err := apiauth.ParseAccessToken(accessToken)
 	if err != nil {
 		if ss.S.Build().IsProd() {
-			getLog(request).Error(
+			newLog(request).Error(
 				ss.
 					NewLogMsg(`failed to parse access token`).
 					AddErr(err).
 					AddRequest(request))
 		} else {
-			getLog(request).Debug(
+			newLog(request).Debug(
 				ss.NewLogMsg(`Failed to parse access token`).
 					AddErr(err).
 					AddRequest(request))
@@ -95,7 +97,7 @@ func handle(ctx context.Context, request request) (response, error) {
 		return response{}, errors.New("failed to parse access token")
 	}
 	if userErr != nil {
-		getLog(request).Warn(
+		newLog(request).Warn(
 			ss.NewLogMsg(`failed to parse access token`).
 				AddErr(userErr).
 				AddRequest(request))
@@ -103,7 +105,7 @@ func handle(ctx context.Context, request request) (response, error) {
 	}
 
 	if !expirationTime.After(ss.Now()) {
-		getUserLog(request, user).Debug(
+		newUserLog(request, user).Debug(
 			ss.NewLogMsg("access key expired at %s", expirationTime))
 		// Special return to generate 401 ("Unauthorized" is case sensitive).
 		return response{}, errors.New("Unauthorized")
@@ -121,7 +123,7 @@ func handle(ctx context.Context, request request) (response, error) {
 	return result, nil
 }
 
-func getLog(request request) ss.LogStream {
+func newLog(request request) ss.LogStream {
 	return ss.S.Log().NewSession(
 		ss.
 			NewLogPrefix(
@@ -131,7 +133,7 @@ func getLog(request request) ss.LogStream {
 			AddRequestID(request.RequestContext.RequestID))
 }
 
-func getUserLog(request request, user ss.UserID) ss.LogStream {
+func newUserLog(request request, user ss.UserID) ss.LogStream {
 	return ss.S.Log().NewSession(
 		ss.
 			NewLogPrefix(

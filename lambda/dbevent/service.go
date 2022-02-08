@@ -30,6 +30,8 @@ func (service *service) Start() {
 func (service *service) handle(event *events.DynamoDBEvent) {
 	ss.S.StartLambda(
 		func() []ss.LogMsgAttr {
+			// Duplicates request data in the logs records with panic,
+			// but not in other records.
 			return ss.NewLogMsgAttrRequestDumps(*event)
 		})
 	defer func() { ss.S.CompleteLambda(recover()) }()

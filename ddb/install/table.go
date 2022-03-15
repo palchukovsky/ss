@@ -161,7 +161,7 @@ func (table TableAbstraction) Create(
 			{Key: aws.String("version"), Value: aws.String(build.Version)},
 			{Key: aws.String("builder"), Value: aws.String(build.Builder)},
 		},
-		BillingMode: aws.String(ddb.BillingModeProvisioned),
+		BillingMode: aws.String(ddb.BillingModePayPerRequest),
 		ProvisionedThroughput: &ddb.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(1),
 			WriteCapacityUnits: aws.Int64(1),

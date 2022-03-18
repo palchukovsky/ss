@@ -80,7 +80,7 @@ func (s sentryConnect) Recover(message *LogMsg) {
 }
 
 func (sentryConnect) Flush() {
-	if !sentryclient.Flush(LambdaMaxRunTimeInclusive) {
+	if !sentryclient.Flush(S.Config().AWS.LambdaTimeout / 2) {
 		log.Println("Not all Sentry records were flushed, timeout was reached.")
 	}
 }

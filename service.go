@@ -11,6 +11,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -89,6 +90,27 @@ func NewService(
 		if !config.SS.Build.IsProd() {
 			config.SS.Build.ID += "-" + config.SS.Build.Version
 		}
+
+		{
+			varName := "SS_AWS_LAMBDA_TIMEOUT"
+			varVal := os.Getenv(varName)
+			if varVal == `` {
+				config.SS.Service.AWS.LambdaTimeout = 3 * time.Second
+			} else {
+				seconds, err := strconv.Atoi(varVal)
+				if err != nil {
+					log := NewLogMsg(
+						`failed to parse environment variable "%s" with lambda timeout "%s"`,
+						varName,
+						varVal).
+						AddErr(err)
+					S.Log().Panic(log)
+				}
+				config.SS.Service.AWS.LambdaTimeout =
+					time.Duration(seconds) * time.Second
+			}
+		}
+
 	}
 
 	return &service{
@@ -148,7 +170,10 @@ func (service *service) Firebase() *firebase.App {
 }
 
 func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
-	timeout := time.After(LambdaMaxRunTime)
+	timeout := service.Config().AWS.LambdaTimeout
+	timeout -= (time.Duration(250) * time.Millisecond)
+
+	timeoutChan := time.After(timeout)
 	observers := &struct {
 		Chans       []chan<- time.Time
 		TimeoutTime *time.Time
@@ -173,7 +198,7 @@ func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
 
 	go func() {
 
-		value := <-timeout
+		value := <-timeoutChan
 
 		service.lambdaTimeoutMutex.Lock()
 		defer service.lambdaTimeoutMutex.Unlock()
@@ -192,8 +217,11 @@ func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
 
 		if observers == service.lambdaTimeoutObservers {
 			// Lambda isn't finished yet.
-			service.Log().Error(
-				NewLogMsg("%s lambda timeout", service.Name()).AddAttrs(getFailInfo()))
+			log := NewLogMsg(
+				"%s lambda timeout %f seconds",
+				service.Name(),
+				timeout.Seconds())
+			service.Log().Error(log.AddAttrs(getFailInfo()))
 		}
 
 		sync.Wait()

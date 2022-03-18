@@ -13,17 +13,6 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-
-const (
-	// LambdaMaxRunTime is the max lambda run time before a forced kill.
-	// It has leeway to complete all service things.
-	LambdaMaxRunTime = 2751 * time.Millisecond
-	// LambdaMaxRunTimeInclusive is the max inclusive lambda run time before
-	// a forced kill.
-	LambdaMaxRunTimeInclusive = 1501 * time.Millisecond
-)
-
-////////////////////////////////////////////////////////////////////////////////
 type Config struct {
 	SS struct {
 		Service ServiceConfig `json:"service"`
@@ -77,6 +66,9 @@ type AWSConfig struct {
 			ID string `json:"id"`
 		} `json:"auth"`
 	} `json:"gateway"`
+
+	// LambdaTimeout is the max lambda run time before a forced kill.
+	LambdaTimeout time.Duration
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -172,7 +172,7 @@ func (session *gatewaySendSession) runSender() {
 			select {
 			case <-doneChan:
 				return
-			case <-time.After(ss.LambdaMaxRunTimeInclusive):
+			case <-time.After(ss.S.Config().AWS.LambdaTimeout / 2):
 				break
 			case <-ss.S.GetLambdaTimeout():
 				break

@@ -132,13 +132,24 @@ func (s sentryConnect) newEvent(
 func (sentryConnect) appendException(source error, event *sentryclient.Event) {
 	const maxErrorDepthFromSentryClient = 10
 	for len(event.Exception) <= maxErrorDepthFromSentryClient {
-		event.Exception = append(
-			event.Exception,
-			sentryclient.Exception{
-				Value:      source.Error(),
-				Type:       reflect.TypeOf(source).String(),
-				Stacktrace: sentryclient.ExtractStacktrace(source),
-			})
+
+		var exception sentryclient.Exception
+		if len(event.Exception) == 0 {
+			exception = sentryclient.Exception{
+				// will be used as the main issue title:
+				Type: event.Message,
+				// will be used as the main issue subtitle:
+				Value: reflect.TypeOf(source).String() + ": " + source.Error(),
+			}
+		} else {
+			exception = sentryclient.Exception{
+				Type:  reflect.TypeOf(source).String(),
+				Value: source.Error(),
+			}
+		}
+		exception.Stacktrace = sentryclient.ExtractStacktrace(source)
+		event.Exception = append(event.Exception, exception)
+
 		switch previous := source.(type) {
 		case interface{ Unwrap() error }:
 			source = previous.Unwrap()
@@ -147,6 +158,7 @@ func (sentryConnect) appendException(source error, event *sentryclient.Event) {
 		default:
 			source = nil
 		}
+
 		if source == nil {
 			break
 		}

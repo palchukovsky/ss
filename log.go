@@ -223,7 +223,7 @@ func (l *serviceLog) checkPanicValue(
 
 	if result, isMessage := panicValue.(*LogMsg); isMessage {
 		// Collecting info from try-catch levels.
-		result.MergeWithLowLevelMsg(getPanicDetails())
+		result.SetParent(getPanicDetails())
 		return result
 	}
 

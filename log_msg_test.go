@@ -4,6 +4,7 @@
 package ss_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/palchukovsky/ss"
@@ -13,14 +14,17 @@ import (
 func Test_SS_LogMsg(test *testing.T) {
 	assert := assert.New(test)
 
-	root := ss.NewLogMsg("root")
-	level1 := ss.NewLogMsg("level 1")
+	root := ss.NewLogMsg("root").AddErr(errors.New("root error"))
+	level1 := ss.
+		NewLogMsg("level 1").
+		AddErr(errors.New("error 1 on level 1")).
+		AddErr(errors.New("error 2 on level 1"))
 	level2 := ss.NewLogMsg("level 2")
 
-	result := root.MergeWithLowLevelMsg(
-		level1.MergeWithLowLevelMsg(
-			level2))
+	level1.SetParent(root)
+	level2.SetParent(level1)
 
-	assert.Equal("root\n1: level 1\n2: level 2", result.GetMessage())
+	assert.Equal(
+		"level 2: 1) error 1 on level 1; 2) error 2 on level 1; 3) root error;\n1: level 1: 1) error 1 on level 1; 2) error 2 on level 1; 3) root error;\n1: root: 1) root error;", level2.GetMessage())
 
 }

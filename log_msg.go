@@ -31,12 +31,12 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 
 type LogMsg struct {
-	message     string
-	breadcrumbs []string
-	attributes  []LogMsgAttr
-	level       logLevel
-	errs        []logMsgAttrErr
-	time        time.Time
+	message    string
+	parent     *LogMsg
+	attributes []LogMsgAttr
+	level      logLevel
+	errs       []logMsgAttrErr
+	time       time.Time
 }
 
 func NewLogMsg(format string, args ...interface{}) *LogMsg {
@@ -59,14 +59,11 @@ func (m *LogMsg) AddAttrs(source []LogMsgAttr) *LogMsg {
 	m.attributes = append(m.attributes, source...)
 	return m
 }
-func (m *LogMsg) MergeWithLowLevelMsg(source *LogMsg) *LogMsg {
-	// It doesn't use level and time from source message, as an error already
+func (m *LogMsg) SetParent(source *LogMsg) {
+	// It will not use level and time from source message, as an error already
 	// happened and info from this occurring is more important.
-	m.breadcrumbs = append(m.breadcrumbs, source.message)
-	m.breadcrumbs = append(m.breadcrumbs, source.breadcrumbs...)
-	m.attributes = append(m.attributes, source.attributes...)
+	m.parent = source
 	m.errs = append(m.errs, source.errs...)
-	return m
 }
 
 func (m *LogMsg) Add(source LogMsgAttr) *LogMsg {
@@ -119,10 +116,23 @@ func (m LogMsg) GetLevel() logLevel        { return m.level }
 func (m LogMsg) GetErrs() []logMsgAttrErr  { return m.errs }
 
 func (m LogMsg) GetMessage() string {
-	result := m.message
-	for i, item := range m.breadcrumbs {
-		result += fmt.Sprintf("\n%d: %s", i+1, item)
+	crateNodeMessage := func(node LogMsg) string {
+		result := node.message
+		if node.errs != nil {
+			result += ":"
+			for i, err := range node.errs {
+				result += fmt.Sprintf(" %d) %s;", i+1, err.Get())
+			}
+		}
+		return result
 	}
+
+	result := crateNodeMessage(m)
+	i := 0
+	for node := m.parent; node != nil; node = node.parent {
+		result += fmt.Sprintf("\n%d: %s", i+1, crateNodeMessage(*node))
+	}
+
 	return result
 }
 
@@ -156,15 +166,18 @@ func (m LogMsg) MarshalAttributesMap() map[string]interface{} {
 		logMsgNodeTime: m.time,
 	}
 
-	for _, a := range m.attributes {
-		a.MarshalLogMsg(result)
+	var errs []interface{}
+
+	for node := &m; node != nil; node = node.parent {
+		for _, a := range node.attributes {
+			a.MarshalLogMsg(result)
+		}
+		for _, e := range node.errs {
+			errs = append(errs, e.MarshalLogMsg())
+		}
 	}
 
-	if m.errs != nil {
-		errs := make([]interface{}, len(m.errs))
-		for i, e := range m.errs {
-			errs[i] = e.MarshalLogMsg()
-		}
+	if errs != nil {
 		result[logMsgNodeErrorList] = errs
 	}
 

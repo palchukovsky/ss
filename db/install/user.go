@@ -11,11 +11,19 @@ import (
 	ddbinstall "github.com/palchukovsky/ss/ddb/install"
 )
 
-type user struct{ ddbinstall.TableAbstraction }
+type user struct {
+	ddbinstall.TableAbstraction
+	hasUserUpdateLambda bool
+}
 
-func newUserTable(ddb ddbinstall.DB, log ss.Log) ddbinstall.Table {
+func newUserTable(
+	ddb ddbinstall.DB,
+	log ss.Log,
+	hasUserUpdateLambda bool,
+) ddbinstall.Table {
 	return user{
-		TableAbstraction: ddbinstall.NewTableAbstraction(ddb, db.User{}, log),
+		TableAbstraction:    ddbinstall.NewTableAbstraction(ddb, db.User{}, log),
+		hasUserUpdateLambda: hasUserUpdateLambda,
 	}
 }
 
@@ -28,14 +36,22 @@ func (table user) Setup() error {
 	if err := table.EnableTimeToLive("anonymExpiration"); err != nil {
 		return err
 	}
-	return table.EnableStreams(
-		ddbinstall.NewStreams(
-			// Full view required to separate business logic record inserts
-			// and deletes from index records inserts and deletes:
-			ddbinstall.StreamViewTypeFull,
-			ddbinstall.NewStream("UserContentUpdate"),
-		),
-	)
+
+	if table.hasUserUpdateLambda {
+		err := table.EnableStreams(
+			ddbinstall.NewStreams(
+				// Full view required to separate business logic record inserts
+				// and deletes from index records inserts and deletes:
+				ddbinstall.StreamViewTypeFull,
+				ddbinstall.NewStream("UserContentUpdate"),
+			),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (user) InsertData() error { return nil }

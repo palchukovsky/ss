@@ -5,7 +5,6 @@ package ss
 
 import (
 	"log"
-	"reflect"
 
 	sentryclient "github.com/getsentry/sentry-go"
 )
@@ -118,51 +117,9 @@ func (s sentryConnect) newEvent(
 
 	result.Message = source.GetMessage()
 
-	for _, err := range source.GetErrs() {
-		result.Message += ": " + err.Get().Error()
-		s.appendException(err.Get(), result)
-		// Only fist error could be added to the Sentry as "exception",
-		// other will just recorded with Sentry record as "dumps".
-		break
-	}
+	// Exception will be stored with Sentry record as "dumps".
 
 	return result
-}
-
-func (sentryConnect) appendException(source error, event *sentryclient.Event) {
-	const maxErrorDepthFromSentryClient = 10
-	for len(event.Exception) <= maxErrorDepthFromSentryClient {
-
-		var exception sentryclient.Exception
-		if len(event.Exception) == 0 {
-			exception = sentryclient.Exception{
-				// will be used as the main issue title:
-				Type: event.Message,
-				// will be used as the main issue subtitle:
-				Value: reflect.TypeOf(source).String() + ": " + source.Error(),
-			}
-		} else {
-			exception = sentryclient.Exception{
-				Type:  reflect.TypeOf(source).String(),
-				Value: source.Error(),
-			}
-		}
-		exception.Stacktrace = sentryclient.ExtractStacktrace(source)
-		event.Exception = append(event.Exception, exception)
-
-		switch previous := source.(type) {
-		case interface{ Unwrap() error }:
-			source = previous.Unwrap()
-		case interface{ Cause() error }:
-			source = previous.Cause()
-		default:
-			source = nil
-		}
-
-		if source == nil {
-			break
-		}
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

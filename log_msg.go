@@ -31,11 +31,12 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 
 type LogMsg struct {
-	message    string
-	attributes []LogMsgAttr
-	level      logLevel
-	errs       []logMsgAttrErr
-	time       time.Time
+	message     string
+	breadcrumbs []string
+	attributes  []LogMsgAttr
+	level       logLevel
+	errs        []logMsgAttrErr
+	time        time.Time
 }
 
 func NewLogMsg(format string, args ...interface{}) *LogMsg {
@@ -61,7 +62,8 @@ func (m *LogMsg) AddAttrs(source []LogMsgAttr) *LogMsg {
 func (m *LogMsg) MergeWithLowLevelMsg(source *LogMsg) *LogMsg {
 	// It doesn't use level and time from source message, as an error already
 	// happened and info from this occurring is more important.
-	m.message += " << " + source.message
+	m.breadcrumbs = append(m.breadcrumbs, source.message)
+	m.breadcrumbs = append(m.breadcrumbs, source.breadcrumbs...)
 	m.attributes = append(m.attributes, source.attributes...)
 	m.errs = append(m.errs, source.errs...)
 	return m
@@ -114,8 +116,15 @@ func (m *LogMsg) AddCurrentStack() *LogMsg {
 
 func (m *LogMsg) SetLevel(source logLevel) { m.level = source }
 func (m LogMsg) GetLevel() logLevel        { return m.level }
-func (m LogMsg) GetMessage() string        { return m.message }
 func (m LogMsg) GetErrs() []logMsgAttrErr  { return m.errs }
+
+func (m LogMsg) GetMessage() string {
+	result := m.message
+	for i, item := range m.breadcrumbs {
+		result += fmt.Sprintf("\n%d: %s", i+1, item)
+	}
+	return result
+}
 
 func (m LogMsg) Error() string {
 	return m.GetMessage() + " " + string(m.ConvertAttributesToJSON())

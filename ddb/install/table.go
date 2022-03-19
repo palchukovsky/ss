@@ -117,10 +117,6 @@ func (table TableAbstraction) Create(
 					KeyType:       aws.String(ddb.KeyTypeHash),
 				},
 			},
-			ProvisionedThroughput: &ddb.ProvisionedThroughput{
-				ReadCapacityUnits:  aws.Int64(1),
-				WriteCapacityUnits: aws.Int64(1),
-			},
 		}
 		if record.GetIndexSortField() != "" {
 			index.KeySchema = append(index.KeySchema, &ddb.KeySchemaElement{

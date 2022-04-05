@@ -9,7 +9,7 @@ import (
 	"github.com/palchukovsky/ss"
 )
 
-// FindMany describes the interface to find many records records by key.
+// FindMany describes the interface to find many records by key.
 type FindMany interface {
 	ss.NoCopy
 

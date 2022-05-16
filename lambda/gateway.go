@@ -58,6 +58,7 @@ func (gateway Gateway) NewSessionGatewaySendSession(
 	result.sync.Add(1)
 	go func() {
 		defer func() { ss.S.Log().CheckExit(recover()) }()
+		defer result.sync.Done()
 		result.runSender()
 	}()
 	return &result
@@ -144,7 +145,6 @@ func (session *gatewaySendSession) SendSerialized(
 }
 
 func (session *gatewaySendSession) runSender() {
-	defer session.sync.Done()
 	defer func() {
 		if ss.S.Config().IsExtraLogEnabled() {
 			session.log.Debug(ss.NewLogMsg("sender completed gateway"))
@@ -165,6 +165,9 @@ func (session *gatewaySendSession) runSender() {
 		doneChan := make(chan struct{})
 		go func() {
 			defer func() { ss.S.Log().CheckExit(recover()) }()
+			if ss.S.Config().IsExtraLogEnabled() {
+				session.log.Debug(ss.NewLogMsg("sending message through gateway..."))
+			}
 			session.send(message.Connection, data)
 			if ss.S.Config().IsExtraLogEnabled() {
 				session.log.Debug(ss.NewLogMsg("message sent through gateway"))

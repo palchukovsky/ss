@@ -145,6 +145,11 @@ func (session *gatewaySendSession) SendSerialized(
 
 func (session *gatewaySendSession) runSender() {
 	defer session.sync.Done()
+	defer func() {
+		if ss.S.Config().IsExtraLogEnabled() {
+			session.log.Debug(ss.NewLogMsg("sender completed gateway"))
+		}
+	}()
 
 	for {
 		message := <-session.messageChan
@@ -161,6 +166,9 @@ func (session *gatewaySendSession) runSender() {
 		go func() {
 			defer func() { ss.S.Log().CheckExit(recover()) }()
 			session.send(message.Connection, data)
+			if ss.S.Config().IsExtraLogEnabled() {
+				session.log.Debug(ss.NewLogMsg("message sent through gateway"))
+			}
 			doneChan <- struct{}{}
 		}()
 

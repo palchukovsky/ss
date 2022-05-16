@@ -54,9 +54,10 @@ func (lambda lambda) execute(
 	request dbeventlambda.Request,
 	event events.DynamoDBEventRecord,
 ) {
-	if events.DynamoDBOperationType(event.EventName) !=
-		events.DynamoDBOperationTypeInsert {
-
+	switch events.DynamoDBOperationType(event.EventName) {
+	case events.DynamoDBOperationTypeInsert:
+		break
+	default:
 		return
 	}
 

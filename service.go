@@ -253,6 +253,10 @@ func (service *service) CompleteLambda(panicValue interface{}) {
 	service.lambdaTimeoutMutex.Unlock()
 
 	service.log.CheckExit(panicValue)
+
+	if service.Config().IsExtraLogEnabled() {
+		service.Log().Debug(NewLogMsg("lambda completed"))
+	}
 }
 
 func (service *service) GetLambdaTimeout() <-chan time.Time {

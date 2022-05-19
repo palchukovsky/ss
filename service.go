@@ -233,6 +233,11 @@ func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
 }
 
 func (service *service) CompleteLambda(panicValue interface{}) {
+	// @palchukovsky: It has to be called before the lambda timeout watcher stop
+	// because without it impossible to catch a log-sync timeout
+	// (and many other timeouts).
+	service.log.CheckExit(panicValue)
+
 	service.lambdaTimeoutMutex.Lock()
 
 	if service.lambdaTimeoutObservers == nil {
@@ -251,12 +256,6 @@ func (service *service) CompleteLambda(panicValue interface{}) {
 	service.lambdaTimeoutObservers = nil
 
 	service.lambdaTimeoutMutex.Unlock()
-
-	service.log.CheckExit(panicValue)
-
-	if service.Config().IsExtraLogEnabled() {
-		service.Log().Debug(NewLogMsg("lambda completed"))
-	}
 }
 
 func (service *service) GetLambdaTimeout() <-chan time.Time {

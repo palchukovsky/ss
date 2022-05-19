@@ -107,23 +107,11 @@ type gatewayMessage struct {
 
 // CloseAndGetStat closes the session.
 func (session *gatewaySendSession) Close() {
-	session.log.Debug(ss.NewLogMsg("closing gateway send session"))
-
 	session.messageChan <- gatewayMessage{}
-
-	session.log.Debug(ss.NewLogMsg("waiting for gateway message sending"))
 	session.sync.Wait()
 
 	if session.sends+session.skips > gatewaySendSessionWarnLevel {
 		session.log.Warn(
-			ss.
-				NewLogMsg(
-					"processed %d gateway messages, %d sent, %d skipped",
-					session.sends+session.skips,
-					session.sends,
-					session.skips))
-	} else {
-		session.log.Debug(
 			ss.
 				NewLogMsg(
 					"processed %d gateway messages, %d sent, %d skipped",

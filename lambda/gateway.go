@@ -57,9 +57,11 @@ func (gateway Gateway) NewSessionGatewaySendSession(
 	}
 	result.sync.Add(1)
 	go func() {
-		defer func() { ss.S.Log().CheckExit(recover()) }()
 		defer result.sync.Done()
-		result.runSender()
+		defer func() { ss.S.Log().CheckExit(recover()) }()
+
+		for result.sendNextMessage() {
+		}
 	}()
 	return &result
 }
@@ -105,11 +107,23 @@ type gatewayMessage struct {
 
 // CloseAndGetStat closes the session.
 func (session *gatewaySendSession) Close() {
+	session.log.Debug(ss.NewLogMsg("closing gateway send session"))
+
 	session.messageChan <- gatewayMessage{}
+
+	session.log.Debug(ss.NewLogMsg("waiting for gateway message sending"))
 	session.sync.Wait()
 
 	if session.sends+session.skips > gatewaySendSessionWarnLevel {
 		session.log.Warn(
+			ss.
+				NewLogMsg(
+					"processed %d gateway messages, %d sent, %d skipped",
+					session.sends+session.skips,
+					session.sends,
+					session.skips))
+	} else {
+		session.log.Debug(
 			ss.
 				NewLogMsg(
 					"processed %d gateway messages, %d sent, %d skipped",
@@ -144,63 +158,52 @@ func (session *gatewaySendSession) SendSerialized(
 	session.Send(connection, data)
 }
 
-func (session *gatewaySendSession) runSender() {
-	defer func() {
-		if ss.S.Config().IsExtraLogEnabled() {
-			session.log.Debug(ss.NewLogMsg("sender completed gateway"))
-		}
+func (session *gatewaySendSession) sendNextMessage() bool {
+	message := <-session.messageChan
+
+	if len(message.Connection) == 0 {
+		// Signal to stop.
+		return false
+	}
+
+	data, isSerialized := message.Data.([]byte)
+	if !isSerialized {
+		data = session.gateway.Serialize(message.Data)
+	}
+
+	doneChan := make(chan struct{})
+	go func() {
+		defer func() { ss.S.Log().CheckExit(recover()) }()
+		session.send(message.Connection, data)
+		doneChan <- struct{}{}
 	}()
 
-	for {
-		message := <-session.messageChan
-		if len(message.Connection) == 0 {
+	session.sync.Add(1)
+	go func() {
+		defer session.sync.Done()
+		defer func() { ss.S.Log().CheckExit(recover()) }()
+
+		select {
+		case <-doneChan:
+			return
+		case <-time.After(ss.S.Config().AWS.LambdaTimeout / 2):
+			break
+		case <-ss.S.GetLambdaTimeout():
 			break
 		}
 
-		data, isSerialized := message.Data.([]byte)
-		if !isSerialized {
-			data = session.gateway.Serialize(message.Data)
+		logMessage := ss.
+			NewLogMsg("gateway message sending timeout").
+			Add(message.Connection)
+		if isSerialized {
+			logMessage.AddDump(string(data))
+		} else {
+			logMessage.AddDump(message.Data)
 		}
+		session.log.Warn(logMessage)
+	}()
 
-		doneChan := make(chan struct{})
-		go func() {
-			defer func() { ss.S.Log().CheckExit(recover()) }()
-			if ss.S.Config().IsExtraLogEnabled() {
-				session.log.Debug(ss.NewLogMsg("sending message through gateway..."))
-			}
-			session.send(message.Connection, data)
-			if ss.S.Config().IsExtraLogEnabled() {
-				session.log.Debug(ss.NewLogMsg("message sent through gateway"))
-			}
-			doneChan <- struct{}{}
-		}()
-
-		session.sync.Add(1)
-		go func() {
-			defer func() { ss.S.Log().CheckExit(recover()) }()
-			defer session.sync.Done()
-
-			select {
-			case <-doneChan:
-				return
-			case <-time.After(ss.S.Config().AWS.LambdaTimeout / 2):
-				break
-			case <-ss.S.GetLambdaTimeout():
-				break
-			}
-
-			logMessage := ss.
-				NewLogMsg("gateway message sending timeout").
-				Add(message.Connection)
-			if isSerialized {
-				logMessage.AddDump(string(data))
-			} else {
-				logMessage.AddDump(message.Data)
-			}
-			session.log.Warn(logMessage)
-		}()
-
-	}
+	return true
 }
 
 func (session *gatewaySendSession) send(

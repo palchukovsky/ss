@@ -171,7 +171,7 @@ func (service *service) Firebase() *firebase.App {
 
 func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
 	timeout := service.Config().AWS.LambdaTimeout
-	timeout -= (time.Duration(250) * time.Millisecond)
+	timeout -= (time.Duration(500) * time.Millisecond)
 
 	timeoutChan := time.After(timeout)
 	observers := &struct {

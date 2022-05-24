@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/palchukovsky/ss"
 )
@@ -92,13 +93,17 @@ func (reader gatewayCommadsReader) Read(
 			name := strings.TrimPrefix(path, sourcePath)
 			name = strings.ReplaceAll(name, "/", " ")
 			name = strings.ReplaceAll(name, "_", " ")
-			name = strings.Title(name)
 			name = strings.ReplaceAll(name, " ", "")
+			{
+				runes := []rune(name)
+				runes[0] = unicode.ToUpper(runes[0])
+				name = string(runes)
+			}
 
 			command, err := reader.newCommand(name, path, log)
 			if err != nil {
 				return fmt.Errorf(
-					`failed to create commad %q by path %q: "%w"`,
+					`failed to create command %q by path %q: "%w"`,
 					name,
 					path,
 					err)

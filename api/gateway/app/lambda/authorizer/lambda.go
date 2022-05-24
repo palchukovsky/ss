@@ -125,21 +125,25 @@ func handle(ctx context.Context, request request) (response, error) {
 
 func newLog(request request) ss.LogStream {
 	return ss.S.Log().NewSession(
-		ss.
-			NewLogPrefix(
-				func() []ss.LogMsgAttr {
-					return ss.NewLogMsgAttrRequestDumps(request)
-				}).
-			AddRequestID(request.RequestContext.RequestID))
+		func() ss.LogPrefix {
+			return ss.
+				NewLogPrefix(
+					func() []ss.LogMsgAttr {
+						return ss.NewLogMsgAttrRequestDumps(request)
+					}).
+				AddRequestID(request.RequestContext.RequestID)
+		})
 }
 
 func newUserLog(request request, user ss.UserID) ss.LogStream {
 	return ss.S.Log().NewSession(
-		ss.
-			NewLogPrefix(
-				func() []ss.LogMsgAttr {
-					return ss.NewLogMsgAttrRequestDumps(request)
-				}).
-			Add(user).
-			AddRequestID(request.RequestContext.RequestID))
+		func() ss.LogPrefix {
+			return ss.
+				NewLogPrefix(
+					func() []ss.LogMsgAttr {
+						return ss.NewLogMsgAttrRequestDumps(request)
+					}).
+				Add(user).
+				AddRequestID(request.RequestContext.RequestID)
+		})
 }

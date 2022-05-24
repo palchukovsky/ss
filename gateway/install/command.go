@@ -28,9 +28,11 @@ type abstractCommand struct {
 func newCommand(name string, log ss.LogSession) (abstractCommand, error) {
 	result := abstractCommand{name: name}
 	result.log = log.NewSession(
-		ss.
-			NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
-			AddVal("gatewayCommand", result.name))
+		func() ss.LogPrefix {
+			return ss.
+				NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+				AddVal("gatewayCommand", result.name)
+		})
 	return result, nil
 }
 

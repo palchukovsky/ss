@@ -32,7 +32,7 @@ type Log interface {
 
 	// NewLogSession creates the log session which allows setting records
 	// prefix for each session message.
-	NewSession(LogPrefix) LogSession
+	NewSession(newPrefix func() LogPrefix) LogSession
 
 	// CheckExit makes final check for panic, writes all error data.
 	// It has to be the one and the lowest level check in the call.
@@ -46,7 +46,7 @@ type LogSession interface {
 
 	// NewLogSession creates the log session which allows setting records
 	// prefix for each session message.
-	NewSession(LogPrefix) LogSession
+	NewSession(newPrefix func() LogPrefix) LogSession
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -178,8 +178,8 @@ func (l *serviceLog) Started() {
 	l.Debug(NewLogMsg("started"))
 }
 
-func (l *serviceLog) NewSession(prefix LogPrefix) LogSession {
-	return newLogSession(l, prefix)
+func (l *serviceLog) NewSession(newPrefix func() LogPrefix) LogSession {
+	return newLogSession(l, newPrefix)
 }
 
 func (l *serviceLog) CheckPanic(panicValue interface{}, errorMessage string) {
@@ -412,16 +412,18 @@ func (l *serviceLog) runWriter() {
 type serviceLogSession struct {
 	NoCopyImpl
 
-	log    LogStream
-	prefix LogPrefix
+	log            LogStream
+	newPrefix      func() LogPrefix
+	prefixCache    LogPrefix
+	isPrefixCached bool
 }
 
-func newLogSession(log LogStream, prefix LogPrefix) LogSession {
-	return &serviceLogSession{log: log, prefix: prefix}
+func newLogSession(log LogStream, newPrefix func() LogPrefix) LogSession {
+	return &serviceLogSession{log: log, newPrefix: newPrefix}
 }
 
-func (s *serviceLogSession) NewSession(prefix LogPrefix) LogSession {
-	return newLogSession(s, prefix)
+func (s *serviceLogSession) NewSession(newPrefix func() LogPrefix) LogSession {
+	return newLogSession(s, newPrefix)
 }
 
 func (s *serviceLogSession) CheckPanic(
@@ -437,23 +439,30 @@ func (s *serviceLogSession) checkPanic(
 ) {
 	s.log.checkPanic(
 		panicValue,
-		func() *LogMsg { return getPanicDetails().AddFailPrefix(s.prefix) })
+		func() *LogMsg { return getPanicDetails().AddFailPrefix(s.getPrefix()) })
 }
 
 func (s *serviceLogSession) Debug(m *LogMsg) {
-	s.log.Debug(m.AddInfoPrefix(s.prefix))
+	s.log.Debug(m.AddInfoPrefix(s.getPrefix()))
 }
 func (s *serviceLogSession) Info(m *LogMsg) {
-	s.log.Info(m.AddInfoPrefix(s.prefix))
+	s.log.Info(m.AddInfoPrefix(s.getPrefix()))
 }
 func (s *serviceLogSession) Warn(m *LogMsg) {
-	s.log.Warn(m.AddFailPrefix(s.prefix))
+	s.log.Warn(m.AddFailPrefix(s.getPrefix()))
 }
 func (s *serviceLogSession) Error(m *LogMsg) {
-	s.log.Error(m.AddFailPrefix(s.prefix))
+	s.log.Error(m.AddFailPrefix(s.getPrefix()))
 }
 func (s *serviceLogSession) Panic(m *LogMsg) {
-	s.log.Panic(m.AddFailPrefix(s.prefix))
+	s.log.Panic(m.AddFailPrefix(s.getPrefix()))
+}
+
+func (s *serviceLogSession) getPrefix() LogPrefix {
+	if !s.isPrefixCached {
+		s.prefixCache = s.newPrefix()
+	}
+	return s.prefixCache
 }
 
 ////////////////////////////////////////////////////////////////////////////////

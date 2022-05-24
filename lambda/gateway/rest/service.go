@@ -52,8 +52,10 @@ func (service service) handle(request awsRequest) awsResponse {
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	log := ss.S.Log().NewSession(
-		ss.NewLogPrefix(
-			func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) }))
+		func() ss.LogPrefix {
+			return ss.NewLogPrefix(
+				func() []ss.LogMsgAttr { return ss.NewLogMsgAttrRequestDumps(request) })
+		})
 
 	lambdaRequest := newRequest(request, service.Gateway, log, service.context)
 	defer func() {

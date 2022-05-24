@@ -53,16 +53,16 @@ func newRequest(
 		log.Panic(ss.NewLogMsg("failed to parse user ID").AddErr(err))
 	}
 
-	logPrefix := ss.
-		NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
-		Add(user).
-		Add(ss.ConnectionID(awsRequest.RequestContext.ConnectionID)).
-		AddRequestID(awsRequest.RequestContext.RequestID)
-
 	return &request{
 		Request: gate.NewRequest(
 			gateway,
-			log.NewSession(logPrefix),
+			log.NewSession(func() ss.LogPrefix {
+				return ss.
+					NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+					Add(user).
+					Add(ss.ConnectionID(awsRequest.RequestContext.ConnectionID)).
+					AddRequestID(awsRequest.RequestContext.RequestID)
+			}),
 			nil),
 		AWSRequest: awsRequest,
 		user:       user,

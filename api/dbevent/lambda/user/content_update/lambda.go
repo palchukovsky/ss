@@ -134,14 +134,15 @@ func (lambda) initHandling(
 
 	apidbevent.UnmarshalEventsDynamoDBAttributeValues(image, &record)
 
-	request.PushLogSession(
-		ss.
+	request.PushLogSession(func() ss.LogPrefix {
+		return ss.
 			NewLogPrefix(
 				func() []ss.LogMsgAttr {
 					return ss.NewLogMsgAttrRequestDumps(request)
 				}).
 			Add(record.User).
-			AddVal("dbevent", eventName))
+			AddVal("dbevent", eventName)
+	})
 
 	return record.User
 }

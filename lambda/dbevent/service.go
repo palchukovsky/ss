@@ -37,12 +37,14 @@ func (service *service) handle(event *events.DynamoDBEvent) {
 	defer func() { ss.S.CompleteLambda(recover()) }()
 
 	log := ss.S.Log().NewSession(
-		ss.
-			NewLogPrefix(
-				func() []ss.LogMsgAttr {
-					return ss.NewLogMsgAttrRequestDumps(*event)
-				}).
-			AddRequestID(event.Records[0].EventID))
+		func() ss.LogPrefix {
+			return ss.
+				NewLogPrefix(
+					func() []ss.LogMsgAttr {
+						return ss.NewLogMsgAttrRequestDumps(*event)
+					}).
+				AddRequestID(event.Records[0].EventID)
+		})
 	defer func() { log.CheckPanic(recover(), "panic at DB-event handling") }()
 
 	if len(event.Records) == 0 {

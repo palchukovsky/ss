@@ -33,9 +33,11 @@ func NewGateway(
 		id:   id,
 		name: name,
 		log: log.NewSession(
-			ss.
-				NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
-				AddVal("gateway", name)),
+			func() ss.LogPrefix {
+				return ss.
+					NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+					AddVal("gateway", name)
+			}),
 		isUserCanRemoveHimself: isUserCanRemoveHimself,
 	}
 }

@@ -52,7 +52,7 @@ func (m *LogMsg) AddInfoPrefix(prefix LogPrefix) *LogMsg {
 }
 func (m *LogMsg) AddFailPrefix(prefix LogPrefix) *LogMsg {
 	m.AddInfoPrefix(prefix)
-	m.AddAttrs(prefix.getFailAttrs())
+	m.AddAttrs(prefix.newFailAttrs())
 	return m
 }
 func (m *LogMsg) AddAttrs(source []LogMsgAttr) *LogMsg {
@@ -168,12 +168,16 @@ func (m LogMsg) MarshalAttributesMap() map[string]interface{} {
 
 	var errs []interface{}
 
-	for node := &m; node != nil; node = node.parent {
+	for node := &m; ; {
 		for _, a := range node.attributes {
 			a.MarshalLogMsg(result)
 		}
 		for _, e := range node.errs {
 			errs = append(errs, e.MarshalLogMsg())
+		}
+
+		if node = node.parent; node == nil {
+			break
 		}
 	}
 
@@ -386,13 +390,13 @@ func (a logMsgAttrStack) MarshalLogMsg(destination map[string]interface{}) {
 
 type LogPrefix struct {
 	generalAttrs []LogMsgAttr
-	getFailAttrs func() []LogMsgAttr
+	newFailAttrs func() []LogMsgAttr
 }
 
-func NewLogPrefix(getFailAttrs func() []LogMsgAttr) LogPrefix {
+func NewLogPrefix(newFailAttrs func() []LogMsgAttr) LogPrefix {
 	return LogPrefix{
 		generalAttrs: make([]LogMsgAttr, 0, 1),
-		getFailAttrs: getFailAttrs,
+		newFailAttrs: newFailAttrs,
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 // Request describes request to lambda which handles DynamoDB event.
 type Request interface {
 	Log() ss.LogStream
-	PushLogSession(ss.LogPrefix)
+	PushLogSession(func() ss.LogPrefix)
 	// PopLogSession pops log session. It has to be called in the stack end,
 	// only if no error occurred. If it is called with "defer" - an unhandled
 	// panic will not have all session data to store info about the error.
@@ -41,10 +41,10 @@ func (request request) Log() ss.LogStream {
 	return request.log[len(request.log)-1]
 }
 
-func (request *request) PushLogSession(prefix ss.LogPrefix) {
+func (request *request) PushLogSession(newPrefix func() ss.LogPrefix) {
 	request.log = append(
 		request.log,
-		request.log[len(request.log)-1].NewSession(prefix))
+		request.log[len(request.log)-1].NewSession(newPrefix))
 }
 
 func (request *request) PopLogSession(panicValue interface{}) {

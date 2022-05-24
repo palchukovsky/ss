@@ -54,9 +54,11 @@ func newRequest(
 		Request: gate.NewRequest(
 			gateway,
 			log.NewSession(
-				ss.
-					NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
-					AddRequestID(awsRequest.RequestContext.RequestID)),
+				func() ss.LogPrefix {
+					return ss.
+						NewLogPrefix(func() []ss.LogMsgAttr { return nil }).
+						AddRequestID(awsRequest.RequestContext.RequestID)
+				}),
 			struct{}{}),
 		AWSRequest: awsRequest,
 		StatusCode: http.StatusOK,

@@ -375,7 +375,7 @@ func (l *serviceLog) syncDestinations() {
 	select {
 	case <-doneSignalChan:
 		break
-	case <-S.GetLambdaTimeout():
+	case <-S.SubscribeForLambdaTimeout():
 		l.Error(NewLogMsg("log sync timeout"))
 	}
 }

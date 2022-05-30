@@ -176,7 +176,7 @@ func (session *gatewaySendSession) sendNextMessage() bool {
 			return
 		case <-time.After(ss.S.Config().AWS.LambdaTimeout / 2):
 			break
-		case <-ss.S.GetLambdaTimeout():
+		case <-ss.S.SubscribeForLambdaTimeout():
 			break
 		}
 

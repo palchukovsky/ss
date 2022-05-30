@@ -41,7 +41,7 @@ type Service interface {
 
 	StartLambda(getFailInfo func() []LogMsgAttr)
 	CompleteLambda(panicValue interface{})
-	GetLambdaTimeout() <-chan time.Time
+	SubscribeForLambdaTimeout() <-chan struct{}
 
 	NewBuildEntityName(name string) string
 
@@ -131,13 +131,9 @@ type service struct {
 	log     Log
 	build   Build
 
-	lambdaTimeoutMutex     sync.Mutex
-	lambdaTimeoutObservers *struct {
-		Chans       []chan<- time.Time
-		TimeoutTime *time.Time
-	}
+	lambdaTimeout *lambdaTimeout
 
-	fireabase unsafe.Pointer
+	firebase unsafe.Pointer
 }
 
 func (service *service) Now() Time             { return Now() }
@@ -148,7 +144,7 @@ func (service *service) Name() string          { return service.name }
 func (service *service) Product() string       { return service.product }
 
 func (service *service) Firebase() *firebase.App {
-	result := atomic.LoadPointer(&service.fireabase)
+	result := atomic.LoadPointer(&service.firebase)
 	if result != nil {
 		return (*firebase.App)(result)
 	}
@@ -160,89 +156,35 @@ func (service *service) Firebase() *firebase.App {
 		service.Log().Panic(NewLogMsg(`failed to init Firebase`).AddErr(err))
 	}
 	isSwapped := atomic.CompareAndSwapPointer(
-		&service.fireabase,
+		&service.firebase,
 		nil,
 		unsafe.Pointer(app))
 	if isSwapped {
 		return app
 	}
-	return (*firebase.App)(atomic.LoadPointer(&service.fireabase))
+	return (*firebase.App)(atomic.LoadPointer(&service.firebase))
 }
 
 func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
-	timeout := service.Config().AWS.LambdaTimeout
-	timeout -= (time.Duration(500) * time.Millisecond)
-
-	timeoutChan := time.After(timeout)
-	observers := &struct {
-		Chans       []chan<- time.Time
-		TimeoutTime *time.Time
-	}{
-		Chans: []chan<- time.Time{},
-	}
-
-	{
-		service.lambdaTimeoutMutex.Lock()
-		if service.lambdaTimeoutObservers == nil {
-			service.lambdaTimeoutObservers = observers
-		} else {
-			observers = nil
-		}
-		service.lambdaTimeoutMutex.Unlock()
-	}
-
-	if observers == nil {
+	if service.lambdaTimeout != nil {
 		service.Log().Panic(
 			NewLogMsg("previous lambda isn't completed").AddAttrs(getFailInfo()))
 	}
 
-	go func() {
-
-		value := <-timeoutChan
-
-		service.lambdaTimeoutMutex.Lock()
-		defer service.lambdaTimeoutMutex.Unlock()
-		// observers.Chans could be already not the same as not service has, but
-		// mutex has to be the same as it could be the same also.
-		// (@palchukovsky: ???, what?)
-
-		var sync sync.WaitGroup
-		for _, observerChan := range observers.Chans {
-			sync.Add(1)
-			go func(observerChan chan<- time.Time) {
-				observerChan <- value
-				sync.Done()
-			}(observerChan)
-		}
-
-		if observers == service.lambdaTimeoutObservers {
-			// Lambda isn't finished yet.
-			log := NewLogMsg(
-				"%s lambda timeout %f seconds",
-				service.Name(),
-				timeout.Seconds())
-			service.Log().Error(log.AddAttrs(getFailInfo()))
-		}
-
-		sync.Wait()
-
-		observers.TimeoutTime = &value
-
-	}()
-
+	timeout := service.Config().AWS.LambdaTimeout
+	timeout -= (time.Duration(500) * time.Millisecond)
+	service.lambdaTimeout = newLambdaTimeout(timeout, getFailInfo)
 }
 
 func (service *service) CompleteLambda(panicValue interface{}) {
+
 	// @palchukovsky: It has to be called before the lambda timeout watcher stop
 	// because without it impossible to catch a log-sync timeout
 	// (and many other timeouts).
 	service.log.CheckExit(panicValue)
 
-	service.lambdaTimeoutMutex.Lock()
-
-	if service.lambdaTimeoutObservers == nil {
-		service.lambdaTimeoutMutex.Unlock()
-		logMessage := NewLogMsg("lambda isn't started")
+	if service.lambdaTimeout == nil {
+		logMessage := NewLogMsg("lambda isn't started, failed to complete")
 		if panicValue != nil {
 			service.Log().Error(logMessage)
 			service.log.CheckExit(panicValue)
@@ -252,28 +194,16 @@ func (service *service) CompleteLambda(panicValue interface{}) {
 		return
 	}
 
-	service.lambdaTimeoutObservers.Chans = nil
-	service.lambdaTimeoutObservers = nil
-
-	service.lambdaTimeoutMutex.Unlock()
+	service.lambdaTimeout.Cancel()
+	service.lambdaTimeout = nil
 }
 
-func (service *service) GetLambdaTimeout() <-chan time.Time {
-	result := make(chan time.Time, 1)
-	service.lambdaTimeoutMutex.Lock()
-	// If no timer - lambda has never started, so there is no any run time limit.
-	if service.lambdaTimeoutObservers != nil {
-		if service.lambdaTimeoutObservers.TimeoutTime == nil {
-			service.lambdaTimeoutObservers.Chans = append(
-				service.lambdaTimeoutObservers.Chans,
-				result)
-		} else {
-			timeoutTime := *service.lambdaTimeoutObservers.TimeoutTime
-			go func() { result <- timeoutTime }()
-		}
+func (service *service) SubscribeForLambdaTimeout() <-chan struct{} {
+    timeout := service.lambdaTimeout
+	if timeout == nil {
+		service.Log().Panic(NewLogMsg("lambda isn't started, failed to subscribe"))
 	}
-	service.lambdaTimeoutMutex.Unlock()
-	return result
+	return timeout.Subscribe()
 }
 
 func (service *service) NewBuildEntityName(name string) string {
@@ -299,6 +229,86 @@ func (service *service) NewAWSSessionV1() *session.Session {
 		service.Log().Panic(NewLogMsg(`failed to load AWS v1 config`).AddErr(err))
 	}
 	return result
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type lambdaTimeout struct {
+	NoCopyImpl
+
+	mutex sync.Mutex
+
+	timeout     time.Duration
+	getFailInfo func() []LogMsgAttr
+
+	timeoutChan <-chan time.Time
+	cancelChan  chan struct{}
+
+	observers []chan<- struct{}
+	isExpired bool
+}
+
+func newLambdaTimeout(
+	timeout time.Duration,
+	getFailInfo func() []LogMsgAttr,
+) *lambdaTimeout {
+	result := &lambdaTimeout{
+		timeout:     timeout,
+		timeoutChan: time.After(timeout),
+		cancelChan:  make(chan struct{}, 1),
+		getFailInfo: getFailInfo,
+	}
+
+	go result.wait()
+
+	return result
+}
+
+func (timeout *lambdaTimeout) Cancel() { timeout.cancelChan <- struct{}{} }
+
+func (timeout *lambdaTimeout) Subscribe() <-chan struct{} {
+	result := make(chan struct{}, 1)
+
+	timeout.mutex.Lock()
+	if !timeout.isExpired {
+		timeout.observers = append(timeout.observers, result)
+	} else {
+		result <- struct{}{}
+	}
+	timeout.mutex.Unlock()
+
+	return result
+}
+
+func (timeout *lambdaTimeout) wait() {
+	var timeoutTime time.Time
+	select {
+	case <-timeout.cancelChan:
+		// Lambda is completed before its timeout.
+		return
+	case timeoutTime = <-timeout.timeoutChan:
+		// Lambda has reached its timeout.
+		break
+	}
+
+	{
+		message := NewLogMsg(
+			"%s lambda timeout %f seconds on %s",
+			S.Name(),
+			timeout.timeout.Seconds(),
+			timeoutTime)
+		S.Log().Error(message.AddAttrs(timeout.getFailInfo()))
+	}
+
+	timeout.mutex.Lock()
+
+	timeout.isExpired = true
+
+	for _, observer := range timeout.observers {
+		observer <- struct{}{}
+	}
+
+	timeout.mutex.Unlock()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

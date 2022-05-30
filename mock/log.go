@@ -275,17 +275,17 @@ func (mr *MockLogMockRecorder) Lock() *gomock.Call {
 }
 
 // NewSession mocks base method.
-func (m *MockLog) NewSession(arg0 ss.LogPrefix) ss.LogSession {
+func (m *MockLog) NewSession(newPrefix func() ss.LogPrefix) ss.LogSession {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSession", arg0)
+	ret := m.ctrl.Call(m, "NewSession", newPrefix)
 	ret0, _ := ret[0].(ss.LogSession)
 	return ret0
 }
 
 // NewSession indicates an expected call of NewSession.
-func (mr *MockLogMockRecorder) NewSession(arg0 interface{}) *gomock.Call {
+func (mr *MockLogMockRecorder) NewSession(newPrefix interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockLog)(nil).NewSession), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockLog)(nil).NewSession), newPrefix)
 }
 
 // Panic mocks base method.
@@ -432,17 +432,17 @@ func (mr *MockLogSessionMockRecorder) Lock() *gomock.Call {
 }
 
 // NewSession mocks base method.
-func (m *MockLogSession) NewSession(arg0 ss.LogPrefix) ss.LogSession {
+func (m *MockLogSession) NewSession(newPrefix func() ss.LogPrefix) ss.LogSession {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSession", arg0)
+	ret := m.ctrl.Call(m, "NewSession", newPrefix)
 	ret0, _ := ret[0].(ss.LogSession)
 	return ret0
 }
 
 // NewSession indicates an expected call of NewSession.
-func (mr *MockLogSessionMockRecorder) NewSession(arg0 interface{}) *gomock.Call {
+func (mr *MockLogSessionMockRecorder) NewSession(newPrefix interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockLogSession)(nil).NewSession), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockLogSession)(nil).NewSession), newPrefix)
 }
 
 // Panic mocks base method.

@@ -6,7 +6,6 @@ package mock_ss
 
 import (
 	reflect "reflect"
-	time "time"
 
 	firebase "firebase.google.com/go"
 	aws "github.com/aws/aws-sdk-go-v2/aws"
@@ -90,20 +89,6 @@ func (m *MockService) Firebase() *firebase.App {
 func (mr *MockServiceMockRecorder) Firebase() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Firebase", reflect.TypeOf((*MockService)(nil).Firebase))
-}
-
-// GetLambdaTimeout mocks base method.
-func (m *MockService) GetLambdaTimeout() <-chan time.Time {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLambdaTimeout")
-	ret0, _ := ret[0].(<-chan time.Time)
-	return ret0
-}
-
-// GetLambdaTimeout indicates an expected call of GetLambdaTimeout.
-func (mr *MockServiceMockRecorder) GetLambdaTimeout() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLambdaTimeout", reflect.TypeOf((*MockService)(nil).GetLambdaTimeout))
 }
 
 // Lock mocks base method.
@@ -226,6 +211,20 @@ func (m *MockService) StartLambda(getFailInfo func() []ss.LogMsgAttr) {
 func (mr *MockServiceMockRecorder) StartLambda(getFailInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartLambda", reflect.TypeOf((*MockService)(nil).StartLambda), getFailInfo)
+}
+
+// SubscribeForLambdaTimeout mocks base method.
+func (m *MockService) SubscribeForLambdaTimeout() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeForLambdaTimeout")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// SubscribeForLambdaTimeout indicates an expected call of SubscribeForLambdaTimeout.
+func (mr *MockServiceMockRecorder) SubscribeForLambdaTimeout() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeForLambdaTimeout", reflect.TypeOf((*MockService)(nil).SubscribeForLambdaTimeout))
 }
 
 // Unlock mocks base method.

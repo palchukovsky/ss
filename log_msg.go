@@ -32,7 +32,7 @@ const (
 
 type LogMsg struct {
 	message    string
-	parent     *LogMsg
+	parents    []*LogMsg
 	attributes []LogMsgAttr
 	level      logLevel
 	errs       []logMsgAttrErr
@@ -59,10 +59,10 @@ func (m *LogMsg) AddAttrs(source []LogMsgAttr) *LogMsg {
 	m.attributes = append(m.attributes, source...)
 	return m
 }
-func (m *LogMsg) SetParent(source *LogMsg) {
+func (m *LogMsg) AddParent(source *LogMsg) {
 	// It will not use level and time from source message, as an error already
 	// happened and info from this occurring is more important.
-	m.parent = source
+	m.parents = append(m.parents, source)
 	m.errs = append(m.errs, source.errs...)
 }
 
@@ -128,10 +128,31 @@ func (m LogMsg) GetMessage() string {
 	}
 
 	result := crateNodeMessage(m)
-	i := 0
-	for node := m.parent; node != nil; node = node.parent {
-		result += fmt.Sprintf("\n%d: %s", i+1, crateNodeMessage(*node))
+
+	var levels []string
+	var addParent func(parent LogMsg, level int)
+	var addParents func(parent LogMsg)
+
+	addParent = func(node LogMsg, level int) {
+		levels = append(levels, fmt.Sprintf("%d", level))
+
+		result += fmt.Sprintf(
+			"\n%s: %s",
+			strings.Join(levels, "."),
+			crateNodeMessage(node))
+
+		addParents(node)
+
+		levels = levels[:len(levels)-1]
 	}
+
+	addParents = func(node LogMsg) {
+		for i, parent := range node.parents {
+			addParent(*parent, i+1)
+		}
+	}
+
+	addParents(m)
 
 	return result
 }
@@ -168,7 +189,8 @@ func (m LogMsg) MarshalAttributesMap() map[string]interface{} {
 
 	var errs []interface{}
 
-	for node := &m; ; {
+	var add func(node LogMsg)
+	add = func(node LogMsg) {
 		for _, a := range node.attributes {
 			a.MarshalLogMsg(result)
 		}
@@ -176,10 +198,11 @@ func (m LogMsg) MarshalAttributesMap() map[string]interface{} {
 			errs = append(errs, e.MarshalLogMsg())
 		}
 
-		if node = node.parent; node == nil {
-			break
+		for _, p := range node.parents {
+			add(*p)
 		}
 	}
+	add(m)
 
 	if errs != nil {
 		result[logMsgNodeErrorList] = errs

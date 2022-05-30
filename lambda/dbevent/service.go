@@ -38,12 +38,18 @@ func (service *service) handle(event *events.DynamoDBEvent) {
 
 	log := ss.S.Log().NewSession(
 		func() ss.LogPrefix {
+			var eventID string
+			if len(event.Records) > 1 {
+				eventID = event.Records[0].EventID
+			} else {
+				eventID = "unknown"
+			}
 			return ss.
 				NewLogPrefix(
 					func() []ss.LogMsgAttr {
 						return ss.NewLogMsgAttrRequestDumps(*event)
 					}).
-				AddRequestID(event.Records[0].EventID)
+				AddRequestID(eventID)
 		})
 	defer func() { log.CheckPanic(recover(), "panic at DB-event handling") }()
 

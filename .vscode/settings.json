@@ -7,6 +7,7 @@
     "dbeventlambda",
     "dbinstall",
     "ddbinstall",
+    "gatewayinstall",
     "logglylib",
     "logzio",
     "logziolib",

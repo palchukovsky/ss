@@ -45,29 +45,32 @@ func NewGateway(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type GatewayCommadsReader interface {
+type GatewayCommandsReader interface {
 	Read(name string, log ss.LogSession) ([]command, error)
 }
 
 func newGatewayCommandsReader(
 	sourcePath string,
 	newCommand func(name, path string, log ss.LogSession) (command, error),
-) GatewayCommadsReader {
-	return gatewayCommadsReader{
+) GatewayCommandsReader {
+	return gatewayCommandsReader{
 		sourcePath: sourcePath,
 		newCommand: newCommand,
 	}
 }
 
-type gatewayCommadsReader struct {
+type gatewayCommandsReader struct {
 	sourcePath string
 	newCommand func(name, path string, log ss.LogSession) (command, error)
 }
 
-func (reader gatewayCommadsReader) Read(
+func (reader gatewayCommandsReader) Read(
 	name string,
 	log ss.LogSession,
-) ([]command, error) {
+) (
+	[]command,
+	error,
+) {
 	result := []command{}
 
 	sourcePath := reader.sourcePath
@@ -90,15 +93,7 @@ func (reader gatewayCommadsReader) Read(
 				return nil
 			}
 
-			name := strings.TrimPrefix(path, sourcePath)
-			name = strings.ReplaceAll(name, "/", " ")
-			name = strings.ReplaceAll(name, "_", " ")
-			name = strings.ReplaceAll(name, " ", "")
-			{
-				runes := []rune(name)
-				runes[0] = unicode.ToUpper(runes[0])
-				name = string(runes)
-			}
+			name := NewGatewayCommandName(path, sourcePath)
 
 			command, err := reader.newCommand(name, path, log)
 			if err != nil {
@@ -124,6 +119,24 @@ func (reader gatewayCommadsReader) Read(
 	}
 
 	return result, nil
+}
+
+func NewGatewayCommandName(path, sourcePath string) string {
+	result := strings.TrimPrefix(path, sourcePath)
+	result = strings.ReplaceAll(result, "/", " ")
+	result = strings.ReplaceAll(result, "_", " ")
+	{
+		runes := []rune(result)
+		for i, r := range runes {
+			if i > 0 && runes[i-1] != ' ' {
+				continue
+			}
+			runes[i] = unicode.ToUpper(r)
+		}
+		result = string(runes)
+	}
+	result = strings.ReplaceAll(result, " ", "")
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////

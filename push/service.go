@@ -111,7 +111,7 @@ func (service *Service) newPush(
 		messageSource.GetType(): messageSource.GetData(),
 	})
 	if err != nil {
-		// Can't add events into error info as it cloud not be serialized
+		// Can't add events into error info as it cloud not be serialized.
 		log.Panic(ss.NewLogMsg("failed to serialize push message").AddErr(err))
 	}
 
@@ -172,6 +172,14 @@ func (push *push) send(device lib.DeviceUserIndex) {
 	_, err := push.service.client.Send(context.Background(), message)
 	if err == nil {
 		push.service.successCount += 1
+
+		if ss.S.Config().IsExtraLogEnabled() {
+			push.log.Debug(
+				ss.
+					NewLogMsg("push message sent").
+					AddVal("fcm", device.FCMToken).
+					AddDump(string(push.message)))
+		}
 		return
 	}
 

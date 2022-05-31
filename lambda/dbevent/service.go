@@ -39,7 +39,7 @@ func (service *service) handle(event *events.DynamoDBEvent) {
 	log := ss.S.Log().NewSession(
 		func() ss.LogPrefix {
 			var eventID string
-			if len(event.Records) > 1 {
+			if len(event.Records) > 0 {
 				eventID = event.Records[0].EventID
 			} else {
 				eventID = "unknown"

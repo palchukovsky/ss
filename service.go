@@ -131,7 +131,7 @@ type service struct {
 	log     Log
 	build   Build
 
-	lambdaTimeout *lambdaTimeout
+	lambdaTimeout lambdaTimeout
 
 	firebase unsafe.Pointer
 }
@@ -166,14 +166,10 @@ func (service *service) Firebase() *firebase.App {
 }
 
 func (service *service) StartLambda(getFailInfo func() []LogMsgAttr) {
-	if service.lambdaTimeout != nil {
-		service.Log().Panic(
-			NewLogMsg("previous lambda isn't completed").AddAttrs(getFailInfo()))
-	}
-
 	timeout := service.Config().AWS.LambdaTimeout
 	timeout -= (time.Duration(500) * time.Millisecond)
-	service.lambdaTimeout = newLambdaTimeout(timeout, getFailInfo)
+
+	service.lambdaTimeout.Start(timeout, getFailInfo)
 }
 
 func (service *service) CompleteLambda(panicValue interface{}) {
@@ -183,27 +179,11 @@ func (service *service) CompleteLambda(panicValue interface{}) {
 	// (and many other timeouts).
 	service.log.CheckExit(panicValue)
 
-	if service.lambdaTimeout == nil {
-		logMessage := NewLogMsg("lambda isn't started, failed to complete")
-		if panicValue != nil {
-			service.Log().Error(logMessage)
-			service.log.CheckExit(panicValue)
-			return
-		}
-		service.Log().Panic(logMessage)
-		return
-	}
-
 	service.lambdaTimeout.Cancel()
-	service.lambdaTimeout = nil
 }
 
 func (service *service) SubscribeForLambdaTimeout() <-chan struct{} {
-    timeout := service.lambdaTimeout
-	if timeout == nil {
-		service.Log().Panic(NewLogMsg("lambda isn't started, failed to subscribe"))
-	}
-	return timeout.Subscribe()
+	return service.lambdaTimeout.Subscribe()
 }
 
 func (service *service) NewBuildEntityName(name string) string {
@@ -235,80 +215,139 @@ func (service *service) NewAWSSessionV1() *session.Session {
 
 type lambdaTimeout struct {
 	NoCopyImpl
+	mutex      sync.RWMutex
+	cancelChan chan struct{}
+	waiter     *lambdaTimeoutWaiter
+}
 
-	mutex sync.Mutex
+func (t *lambdaTimeout) Start(
+	timeout time.Duration,
+	getFailInfo func() []LogMsgAttr,
+) {
+	// No sync, start-cancel are always synchronized.
+	// But subscribing is not (see below).
 
-	timeout     time.Duration
-	getFailInfo func() []LogMsgAttr
+	if t.cancelChan != nil {
+		S.Log().Panic(
+			NewLogMsg("previous lambda isn't completed").AddAttrs(getFailInfo()))
+	}
 
-	timeoutChan <-chan time.Time
-	cancelChan  chan struct{}
+	t.cancelChan = make(chan struct{}, 1)
 
+	waiter := newLambdaTimeoutWaiter(t.cancelChan, timeout, getFailInfo)
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.waiter = waiter
+}
+
+func (t *lambdaTimeout) Cancel() {
+	// No sync, start-cancel are always synchronized.
+
+	if t.cancelChan == nil {
+		S.Log().Panic(NewLogMsg(`lambda timeout is not started`))
+	}
+
+	t.cancelChan <- struct{}{}
+	t.cancelChan = nil
+
+	t.waiter.Expire()
+}
+
+func (t *lambdaTimeout) Subscribe() <-chan struct{} {
+	result := make(chan struct{}, 1)
+
+	isObservationActive := false
+	defer func() {
+		if isObservationActive {
+			return
+		}
+		result <- struct{}{}
+	}()
+
+	t.mutex.RLock()
+	waiter := t.waiter
+	t.mutex.RUnlock()
+
+	if waiter == nil {
+		// Means some lambda doesn't have "StartLambda" call,
+		// so it doesn't have timeout.
+		isObservationActive = true
+		return result
+	}
+
+	isObservationActive = waiter.Subscribe(result)
+	return result
+}
+
+type lambdaTimeoutWaiter struct {
+	NoCopyImpl
+	mutex     sync.Mutex
 	observers []chan<- struct{}
 	isExpired bool
 }
 
-func newLambdaTimeout(
+func newLambdaTimeoutWaiter(
+	cancelChan chan struct{},
 	timeout time.Duration,
 	getFailInfo func() []LogMsgAttr,
-) *lambdaTimeout {
-	result := &lambdaTimeout{
-		timeout:     timeout,
-		timeoutChan: time.After(timeout),
-		cancelChan:  make(chan struct{}, 1),
-		getFailInfo: getFailInfo,
-	}
-
-	go result.wait()
-
+) *lambdaTimeoutWaiter {
+	result := &lambdaTimeoutWaiter{}
+	go result.wait(cancelChan, timeout, getFailInfo)
 	return result
 }
 
-func (timeout *lambdaTimeout) Cancel() { timeout.cancelChan <- struct{}{} }
+func (w *lambdaTimeoutWaiter) wait(
+	cancelChan chan struct{},
+	timeout time.Duration,
+	getFailInfo func() []LogMsgAttr,
+) {
+	defer func() {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
 
-func (timeout *lambdaTimeout) Subscribe() <-chan struct{} {
-	result := make(chan struct{}, 1)
+		w.isExpired = true
 
-	timeout.mutex.Lock()
-	if !timeout.isExpired {
-		timeout.observers = append(timeout.observers, result)
-	} else {
-		result <- struct{}{}
-	}
-	timeout.mutex.Unlock()
+		for _, observer := range w.observers {
+			observer <- struct{}{}
+		}
+	}()
 
-	return result
-}
-
-func (timeout *lambdaTimeout) wait() {
-	var timeoutTime time.Time
 	select {
-	case <-timeout.cancelChan:
+	case <-cancelChan:
 		// Lambda is completed before its timeout.
-		return
-	case timeoutTime = <-timeout.timeoutChan:
+		break
+	case timeoutTime := <-time.After(timeout):
 		// Lambda has reached its timeout.
+		{
+			message := NewLogMsg(
+				"%s lambda timeout %f seconds on %s",
+				S.Name(),
+				timeout.Seconds(),
+				timeoutTime)
+			S.Log().Error(message.AddAttrs(getFailInfo()))
+		}
 		break
 	}
+}
 
-	{
-		message := NewLogMsg(
-			"%s lambda timeout %f seconds on %s",
-			S.Name(),
-			timeout.timeout.Seconds(),
-			timeoutTime)
-		S.Log().Error(message.AddAttrs(timeout.getFailInfo()))
+func (w *lambdaTimeoutWaiter) Subscribe(observerChan chan<- struct{}) bool {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.isExpired {
+		return false
 	}
 
-	timeout.mutex.Lock()
+	w.observers = append(w.observers, observerChan)
+	return true
+}
 
-	timeout.isExpired = true
-
-	for _, observer := range timeout.observers {
-		observer <- struct{}{}
-	}
-
-	timeout.mutex.Unlock()
+func (w *lambdaTimeoutWaiter) Expire() {
+	w.mutex.Lock()
+	w.isExpired = true
+	w.mutex.Unlock()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

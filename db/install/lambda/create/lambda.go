@@ -29,7 +29,7 @@ func Run(installer dbinstall.Installer) {
 		log.Panic(ss.NewLogMsg(`failed to create tables`).AddErr(err))
 	}
 
-	log.Info(ss.NewLogMsg("setupping..."))
+	log.Info(ss.NewLogMsg("setup..."))
 	err = dbinstall.ForEachTable(
 		installer,
 		db,

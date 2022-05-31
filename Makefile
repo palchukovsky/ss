@@ -44,8 +44,8 @@ all:
 	@$(call echo_start)
 	go mod download
 	$(call make_target,install-env)
-	$(call make_target,lint)
 	$(call make_target,mock)
+	$(call make_target,lint)
 	go test -timeout 15s -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@$(call echo_success)
 

@@ -3,8 +3,6 @@
 
 FROM docker:20.10.16-alpine3.16
 
-ARG CONFIG
-
 WORKDIR /usr/src/app
 
 COPY . .

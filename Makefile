@@ -7,13 +7,13 @@
 	mock \
 .DEFAULT_GOAL = all
 
-GO_VER = 1.17
+GO_VER = 1.18
 # golangci-lint will be installed inside container during building, local
 # copy has to be installed by:
 #   go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_VER}
 # or
 #   brew update && brew upgrade golangci-lint
-GOLANGCI_VER = 1.43.0
+GOLANGCI_VER = 1.46.2
 
 ORGANIZATION = palchukovsky
 CODE_REPO = github.com/${ORGANIZATION}/ss
@@ -44,7 +44,7 @@ all:
 	@$(call echo_start)
 	go mod download
 	$(call make_target,install-env)
-# $(call make_target,lint)
+	$(call make_target,lint)
 	$(call make_target,mock)
 	go test -timeout 15s -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@$(call echo_success)

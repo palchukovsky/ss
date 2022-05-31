@@ -167,6 +167,13 @@ func (push *push) send(device lib.DeviceUserIndex) {
 	message := &messaging.Message{
 		Data:  push.newMessage(device.Key),
 		Token: string(device.FCMToken),
+		APNS: &messaging.APNSConfig{
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{
+					ContentAvailable: true, // required for iOS
+				},
+			},
+		},
 	}
 
 	_, err := push.service.client.Send(context.Background(), message)

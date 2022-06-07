@@ -167,11 +167,22 @@ func (push *push) send(device lib.DeviceUserIndex) {
 	message := &messaging.Message{
 		Data:  push.newMessage(device.Key),
 		Token: string(device.FCMToken),
-		APNS: &messaging.APNSConfig{
+		Android: &messaging.AndroidConfig{
+			Priority: "high",
+		},
+		APNS: &messaging.APNSConfig{ // for iOS
 			Payload: &messaging.APNSPayload{
 				Aps: &messaging.Aps{
-					ContentAvailable: true, // required for iOS
+					ContentAvailable: true, // also "apns-priority" header
+					Alert: &messaging.ApsAlert{
+						Body: "",
+					},
 				},
+			},
+			Headers: map[string]string{
+				"apns-push-type": "background",
+				"apns-priority":  "5", // must be `5` when `contentAvailable` is true.
+				"apns-topic":     ss.S.Config().App.IOS.Bundle,
 			},
 		},
 	}

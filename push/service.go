@@ -174,9 +174,6 @@ func (push *push) send(device lib.DeviceUserIndex) {
 			Payload: &messaging.APNSPayload{
 				Aps: &messaging.Aps{
 					ContentAvailable: true, // also "apns-priority" header
-					Alert: &messaging.ApsAlert{
-						Body: "",
-					},
 				},
 			},
 			Headers: map[string]string{
